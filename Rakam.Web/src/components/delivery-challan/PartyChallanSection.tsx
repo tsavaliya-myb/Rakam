@@ -1,0 +1,85 @@
+"use client";
+
+import { useFieldArray, useFormContext } from "react-hook-form";
+import { Plus, Trash2, Calendar } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { DCFormValues } from "@/lib/schemas/delivery-challan.schema";
+
+export function PartyChallanSection() {
+  const { register, watch } = useFormContext<DCFormValues>();
+  const { fields, append, remove } = useFieldArray<DCFormValues>({ name: "challans" });
+
+  function addChallan() {
+    append({ id: crypto.randomUUID(), noChallan: false, partyChallanNo: "", partyChallanDate: "" });
+  }
+
+  const inp = cn(
+    "w-full px-3 py-2 text-sm rounded-xl border border-border bg-secondary text-foreground outline-none",
+    "focus:border-teal-300 focus:bg-white focus:ring-2 focus:ring-teal-700/10 transition-all"
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+          Party Challans
+        </h3>
+        <button type="button" onClick={addChallan}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-100 hover:bg-teal-100 transition-colors">
+          <Plus size={12} /> Add Challan
+        </button>
+      </div>
+
+      {fields.length === 0 && (
+        <div className="text-xs text-muted-foreground py-3 text-center border border-dashed border-border rounded-xl">
+          No party challans added.{" "}
+          <button type="button" onClick={addChallan} className="text-teal-700 font-semibold hover:underline">
+            Add one
+          </button>
+        </div>
+      )}
+
+      {fields.map((field, index) => {
+        const noChallan = watch(`challans.${index}.noChallan`);
+        return (
+          <div key={field.id} className="p-4 rounded-xl border border-border bg-secondary/40 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" {...register(`challans.${index}.noChallan`)}
+                  className="w-4 h-4 rounded accent-teal-700" />
+                <span className="text-xs font-medium text-foreground">Don't have challan?</span>
+              </label>
+              <button type="button" onClick={() => remove(index)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                <Trash2 size={13} />
+              </button>
+            </div>
+
+            {!noChallan && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Party Challan No.
+                  </label>
+                  <input {...register(`challans.${index}.partyChallanNo`)}
+                    placeholder="e.g. MC-2026-088"
+                    className={inp} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Party Challan Date
+                  </label>
+                  <div className="relative">
+                    <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input type="date" {...register(`challans.${index}.partyChallanDate`)}
+                      className={cn(inp, "pl-8")} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

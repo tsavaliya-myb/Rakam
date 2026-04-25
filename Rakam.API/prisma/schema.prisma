@@ -1,0 +1,934 @@
+// Bill Saathi — Prisma schema
+// Models added per billsaathi-database-schema.md as modules are implemented.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum BillType {
+  TAX_INVOICE
+  JOB_CHALLAN
+
+  @@map("bill_type_enum")
+}
+
+enum PurchaseBillType {
+  WITH_TAX
+  WITHOUT_TAX
+
+  @@map("purchase_bill_type")
+}
+
+enum BillStatus {
+  UNPAID
+  PARTIAL
+  PAID
+
+  @@map("bill_status_enum")
+}
+
+enum PaymentMode {
+  CASH
+  CHEQUE
+  ONLINE
+  OTHER
+
+  @@map("payment_mode_enum")
+}
+
+enum TxnType {
+  DEBIT
+  CREDIT
+
+  @@map("txn_type_enum")
+}
+
+enum TxnFor {
+  SALES
+  PURCHASE
+  EXPENSE
+  INCOME
+  OTHER
+
+  @@map("txn_for_enum")
+}
+
+enum Unit {
+  PCS
+  KG
+  MTR
+  LTR
+  GM
+  PAGE
+  BAG
+  GROSS
+  BOX
+  YARD
+  PACKET
+  TON
+  ROOM
+  ROLL
+  DAY
+  TRIP
+  CM
+  CARAT
+  VISIT
+  TP
+  BRASS
+  SQFT
+  MILESTONE
+
+  @@map("unit_enum")
+}
+
+enum GstPct {
+  PCT_0   @map("0")
+  PCT_025 @map("0.25")
+  PCT_1   @map("1")
+  PCT_15  @map("1.5")
+  PCT_3   @map("3")
+  PCT_5   @map("5")
+  PCT_6   @map("6")
+  PCT_75  @map("7.5")
+  PCT_12  @map("12")
+  PCT_18  @map("18")
+  PCT_28  @map("28")
+
+  @@map("gst_pct_enum")
+}
+
+enum DiscountScope {
+  BILL
+  ITEM
+
+  @@map("discount_scope_enum")
+}
+
+enum PrintType {
+  ORIGINAL
+  DUPLICATE
+  TRIPLICATE
+
+  @@map("print_type_enum")
+}
+
+enum PdfTemplate {
+  STANDARD
+  MODERN
+
+  @@map("pdf_template_enum")
+}
+
+enum ExpenseMode {
+  AMOUNT
+  ITEM
+
+  @@map("expense_mode_enum")
+}
+
+// ─── Identity & Tenancy ──────────────────────────────────────────────────────
+
+model Account {
+  id            BigInt    @id @default(autoincrement())
+  publicId      String    @unique @default(uuid()) @map("public_id") @db.Uuid
+  businessTypes String[]  @default([]) @map("business_types")
+  defaultFirmId BigInt?   @map("default_firm_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  users User[]
+  firms Firm[]
+
+  @@map("accounts")
+}
+
+model User {
+  id              BigInt    @id @default(autoincrement())
+  accountId       BigInt    @map("account_id")
+  mobile          String    @unique @db.VarChar(15)
+  email           String?   @db.VarChar(255)
+  firstName       String?   @map("first_name") @db.VarChar(80)
+  lastName        String?   @map("last_name") @db.VarChar(80)
+  profilePhotoKey String?   @map("profile_photo_key")
+  lastLoginAt     DateTime? @map("last_login_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  account       Account        @relation(fields: [accountId], references: [id])
+  salesBills    SalesBill[]
+  purchaseBills PurchaseBill[]
+  transactions  Transaction[]
+
+  @@index([accountId])
+  @@map("users")
+}
+
+// ─── Firms ───────────────────────────────────────────────────────────────────
+
+model Firm {
+  id              BigInt    @id @default(autoincrement())
+  accountId       BigInt    @map("account_id")
+  name            String    @db.VarChar(160)
+  ownerName       String?   @map("owner_name") @db.VarChar(120)
+  gstNo           String?   @map("gst_no") @db.VarChar(15)
+  panNo           String?   @map("pan_no") @db.VarChar(10)
+  msmeNo          String?   @map("msme_no") @db.VarChar(30)
+  defaultGstPct   GstPct?   @map("default_gst_pct")
+  mobilePrimary   String?   @map("mobile_primary") @db.VarChar(15)
+  mobileSecondary String?   @map("mobile_secondary") @db.VarChar(15)
+  address         String?
+  state           String?   @db.VarChar(60)
+  city            String?   @db.VarChar(80)
+  pincode         String?   @db.VarChar(10)
+  isDefault       Boolean   @default(false) @map("is_default")
+  showWatermark   Boolean   @default(true) @map("show_watermark")
+  showLogo        Boolean   @default(true) @map("show_logo")
+  showSignature   Boolean   @default(true) @map("show_signature")
+  logoKey         String?   @map("logo_key")
+  watermarkKey    String?   @map("watermark_key")
+  signatureKey    String?   @map("signature_key")
+  udhyamCertKey  String?   @map("udhyam_cert_key")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  account                  Account                        @relation(fields: [accountId], references: [id])
+  salesBillSettings        FirmSalesBillSettings?
+  purchaseBillSettings     FirmPurchaseBillSettings?
+  deliveryChallanSettings  FirmDeliveryChallanSettings?
+  otherSettings            FirmOtherSettings?
+  bankDetails              FirmBankDetails?
+  ewayGspCredentials       EwayGspCredentials?
+  dispatchAddresses        DispatchAddress[]
+  parties                  Party[]
+  products                 Product[]
+  salesBills               SalesBill[]
+  purchaseBills            PurchaseBill[]
+  deliveryChallans         DeliveryChallan[]
+  transactions             Transaction[]
+  expenseCategories        ExpenseCategory[]
+  expenseSuppliers         ExpenseSupplier[]
+  expenseItems             ExpenseItem[]
+  expenses                 Expense[]
+  incomeCategories         IncomeCategory[]
+  incomeSuppliers          IncomeSupplier[]
+  incomes                  Income[]
+
+  @@index([accountId])
+  @@map("firms")
+}
+
+model FirmBankDetails {
+  firmId            BigInt  @id @map("firm_id")
+  bankName          String? @map("bank_name") @db.VarChar(120)
+  branchName        String? @map("branch_name") @db.VarChar(120)
+  accountHolderName String? @map("account_holder_name") @db.VarChar(120)
+  accountType       String? @map("account_type") @db.VarChar(40)
+  accountNo         String? @map("account_no") @db.VarChar(30)
+  ifscCode          String? @map("ifsc_code") @db.VarChar(11)
+
+  firm Firm @relation(fields: [firmId], references: [id])
+
+  @@map("firm_bank_details")
+}
+
+model DispatchAddress {
+  id           BigInt   @id @default(autoincrement())
+  firmId       BigInt   @map("firm_id")
+  dispatchName String   @map("dispatch_name") @db.VarChar(120)
+  address      String
+  city         String?  @db.VarChar(80)
+  state        String   @db.VarChar(60)
+  pincode      String?  @db.VarChar(10)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  firm Firm @relation(fields: [firmId], references: [id])
+
+  @@index([firmId])
+  @@map("dispatch_addresses")
+}
+
+model EwayGspCredentials {
+  firmId         BigInt   @id @map("firm_id")
+  gspUsername    String   @map("gsp_username") @db.VarChar(120)
+  gspPasswordEnc String   @map("gsp_password_enc")
+  registeredAt   DateTime @default(now()) @map("registered_at")
+
+  firm Firm @relation(fields: [firmId], references: [id])
+
+  @@map("eway_gsp_credentials")
+}
+
+model FirmDeliveryChallanSettings {
+  firmId             BigInt      @id @map("firm_id")
+  showRate           Boolean     @default(true) @map("show_rate")
+  showGstNo          Boolean     @default(true) @map("show_gst_no")
+  defaultPrintType   PrintType   @default(DUPLICATE) @map("default_print_type")
+  showChallanSection Boolean     @default(true) @map("show_challan_section")
+  termsAndConditions String?     @map("terms_and_conditions")
+  pdfCustomHeading   String?     @map("pdf_custom_heading") @db.VarChar(30)
+  pdfTemplate        PdfTemplate @default(STANDARD) @map("pdf_template")
+
+  firm Firm @relation(fields: [firmId], references: [id])
+
+  @@map("firm_delivery_challan_settings")
+}
+
+model FirmOtherSettings {
+  firmId                     BigInt  @id @map("firm_id")
+  enableInventory            Boolean @default(false) @map("enable_inventory")
+  allowSalesWithoutStock     Boolean @default(false) @map("allow_sales_without_stock")
+  enableShortcuts            Boolean @default(true) @map("enable_shortcuts")
+  enableDecimalValues        Boolean @default(true) @map("enable_decimal_values")
+  enablePartyWiseProductRate Boolean @default(false) @map("enable_party_wise_product_rate")
+  enableShipmentAddress      Boolean @default(false) @map("enable_shipment_address")
+
+  firm Firm @relation(fields: [firmId], references: [id])
+
+  @@map("firm_other_settings")
+}
+
+model FirmSalesBillSettings {
+  firmId                    BigInt        @id @map("firm_id")
+  showDueDetailsInInvoice   Boolean       @default(false) @map("show_due_details_in_invoice")
+  showGstInJobChallan       Boolean       @default(true) @map("show_gst_in_job_challan")
+  defaultPrintType          PrintType     @default(ORIGINAL) @map("default_print_type")
+  showChallanSection        Boolean       @default(true) @map("show_challan_section")
+  billNoLabel               String        @default("Bill No.") @map("bill_no_label") @db.VarChar(20)
+  showLossProductOption     Boolean       @default(false) @map("show_loss_product_option")
+  showDeliveryToSalesOption Boolean       @default(false) @map("show_delivery_to_sales_option")
+  showWithholdingTax        Boolean       @default(false) @map("show_withholding_tax")
+  enableDirectPayment       Boolean       @default(false) @map("enable_direct_payment")
+  discountScope             DiscountScope @default(BILL) @map("discount_scope")
+  gstScope                  DiscountScope @default(BILL) @map("gst_scope")
+  billPrefix                String?       @map("bill_prefix") @db.VarChar(20)
+  termsAndConditions        String?       @map("terms_and_conditions")
+  jobChallanTitle           String?       @map("job_challan_title") @db.VarChar(20)
+  taxInvoiceTitle           String?       @map("tax_invoice_title") @db.VarChar(20)
+  pdfCustomHeading          String?       @map("pdf_custom_heading") @db.VarChar(30)
+  pdfTemplate               PdfTemplate   @default(STANDARD) @map("pdf_template")
+
+  firm Firm @relation(fields: [firmId], references: [id])
+
+  @@map("firm_sales_bill_settings")
+}
+
+// ─── Parties ─────────────────────────────────────────────────────────────────
+
+model Party {
+  id                 BigInt    @id @default(autoincrement())
+  accountId          BigInt    @map("account_id")
+  firmId             BigInt    @map("firm_id")
+  name               String    @db.VarChar(160)
+  ownerName          String?   @map("owner_name") @db.VarChar(120)
+  gstNo              String?   @map("gst_no") @db.VarChar(15)
+  panNo              String?   @map("pan_no") @db.VarChar(10)
+  address            String?
+  state              String?   @db.VarChar(60)
+  city               String?   @db.VarChar(80)
+  pincode            String?   @db.VarChar(10)
+  contactNumber      String?   @map("contact_number") @db.VarChar(15)
+  defaultDiscountPct Decimal   @default(0) @map("default_discount_pct") @db.Decimal(6, 3)
+  defaultDueDays     Int       @default(45) @map("default_due_days")
+  brokerName         String?   @map("broker_name") @db.VarChar(120)
+  brokerMobile       String?   @map("broker_mobile") @db.VarChar(15)
+  balanceCached      Decimal   @default(0) @map("balance_cached") @db.Decimal(14, 2)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  firm              Firm                   @relation(fields: [firmId], references: [id])
+  salesBills        SalesBill[]
+  purchaseBills     PurchaseBill[]
+  deliveryChallans  DeliveryChallan[]
+  transactions      Transaction[]
+  shipmentAddresses PartyShipmentAddress[]
+  productRates      PartyProductRate[]
+
+  @@unique([firmId, name], map: "uq_party_firm_name")
+  @@index([firmId, name])
+  @@index([firmId, gstNo])
+  @@map("parties")
+}
+
+model PartyShipmentAddress {
+  id       BigInt  @id @default(autoincrement())
+  partyId  BigInt  @map("party_id")
+  label    String  @db.VarChar(60)
+  address  String
+  state    String? @db.VarChar(60)
+  city     String? @db.VarChar(80)
+  pincode  String? @db.VarChar(10)
+
+  party Party @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([partyId])
+  @@map("party_shipment_addresses")
+}
+
+model PartyProductRate {
+  id        BigInt  @id @default(autoincrement())
+  partyId   BigInt  @map("party_id")
+  productId BigInt  @map("product_id")
+  rate      Decimal @db.Decimal(14, 2)
+
+  party   Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([partyId, productId])
+  @@index([partyId])
+  @@map("party_product_rates")
+}
+
+// ─── Products ────────────────────────────────────────────────────────────────
+
+model Product {
+  id          BigInt    @id @default(autoincrement())
+  accountId   BigInt    @map("account_id")
+  firmId      BigInt    @map("firm_id")
+  name        String    @db.VarChar(160)
+  rate        Decimal?  @db.Decimal(14, 2)
+  unit        Unit
+  gstPct      GstPct?   @map("gst_pct")
+  itemCode    String?   @map("item_code") @db.VarChar(60)
+  hsnCode     String?   @map("hsn_code") @db.VarChar(15)
+  description String?   @db.VarChar(250)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  firm                  Firm                  @relation(fields: [firmId], references: [id])
+  salesBillItems        SalesBillItem[]
+  purchaseBillItems     PurchaseBillItem[]
+  deliveryChallanItems  DeliveryChallanItem[]
+  partyRates            PartyProductRate[]
+
+  @@index([firmId, name])
+  @@index([firmId, itemCode])
+  @@index([firmId, hsnCode])
+  @@map("products")
+}
+
+// ─── Delivery Challans ───────────────────────────────────────────────────────
+
+model DeliveryChallan {
+  id               BigInt    @id @default(autoincrement())
+  accountId        BigInt    @map("account_id")
+  firmId           BigInt    @map("firm_id")
+  fy               Int       @db.SmallInt
+  partyId          BigInt    @map("party_id")
+  dcNoSeq          Int       @map("dc_no_seq")
+  dcNoDisplay      String?   @map("dc_no_display") @db.VarChar(40)
+  dcDate           DateTime  @map("dc_date") @db.Date
+  partyChallanNo   String?   @map("party_challan_no") @db.VarChar(60)
+  partyChallanDate DateTime? @map("party_challan_date") @db.Date
+  noChallan        Boolean   @default(false) @map("no_challan")
+  remarks          String?   @db.VarChar(200)
+  totalQty         Decimal   @default(0) @map("total_qty") @db.Decimal(14, 3)
+  netAmount        Decimal   @default(0) @map("net_amount") @db.Decimal(14, 2)
+  totalAmount      Decimal   @default(0) @map("total_amount") @db.Decimal(14, 2)
+  salesBillId      BigInt?   @map("sales_bill_id")
+  createdBy        BigInt?   @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  firm              Firm                  @relation(fields: [firmId], references: [id])
+  party             Party                 @relation(fields: [partyId], references: [id])
+  salesBill         SalesBill?            @relation(fields: [salesBillId], references: [id])
+  items             DeliveryChallanItem[]
+  salesBillChallans SalesBillChallan[]
+
+  @@unique([firmId, fy, dcNoSeq])
+  @@index([firmId, fy, dcDate(sort: Desc)])
+  @@index([firmId, fy, salesBillId])
+  @@map("delivery_challans")
+}
+
+model DeliveryChallanItem {
+  id                  BigInt  @id @default(autoincrement())
+  deliveryChallanId   BigInt  @map("delivery_challan_id")
+  productId           BigInt? @map("product_id")
+  productNameSnapshot String? @map("product_name_snapshot") @db.VarChar(160)
+  itemCode            String? @map("item_code") @db.VarChar(60)
+  hsnCode             String? @map("hsn_code") @db.VarChar(15)
+  qty                 Decimal @db.Decimal(14, 3)
+  unit                Unit
+  rate                Decimal @db.Decimal(14, 2)
+  amount              Decimal @db.Decimal(14, 2)
+  lineNo              Int     @map("line_no") @db.SmallInt
+
+  deliveryChallan DeliveryChallan @relation(fields: [deliveryChallanId], references: [id], onDelete: Cascade)
+  product         Product?        @relation(fields: [productId], references: [id])
+
+  @@index([deliveryChallanId, lineNo])
+  @@index([productId])
+  @@map("delivery_challan_items")
+}
+
+// ─── Sales Bills ─────────────────────────────────────────────────────────────
+
+model SalesBill {
+  id             BigInt        @id @default(autoincrement())
+  accountId      BigInt        @map("account_id")
+  firmId         BigInt        @map("firm_id")
+  fy             Int           @db.SmallInt
+  partyId        BigInt        @map("party_id")
+  billType       BillType      @map("bill_type")
+  billNoPrefix   String?       @map("bill_no_prefix") @db.VarChar(20)
+  billNoSeq      Int           @map("bill_no_seq")
+  billNoDisplay  String?       @map("bill_no_display") @db.VarChar(40)
+  billDate       DateTime      @map("bill_date") @db.Date
+  dueDays        Int?          @map("due_days")
+  dueDate        DateTime?     @map("due_date") @db.Date
+  applyGst       Boolean       @default(false) @map("apply_gst")
+  discountScope  DiscountScope @default(BILL) @map("discount_scope")
+  gstScope       DiscountScope @default(BILL) @map("gst_scope")
+  discountPct    Decimal       @default(0) @map("discount_pct") @db.Decimal(6, 3)
+  discountAmount Decimal       @default(0) @map("discount_amount") @db.Decimal(14, 2)
+  netAmount      Decimal       @default(0) @map("net_amount") @db.Decimal(14, 2)
+  taxableAmount  Decimal       @default(0) @map("taxable_amount") @db.Decimal(14, 2)
+  cgstAmount     Decimal       @default(0) @map("cgst_amount") @db.Decimal(14, 2)
+  sgstAmount     Decimal       @default(0) @map("sgst_amount") @db.Decimal(14, 2)
+  igstAmount     Decimal       @default(0) @map("igst_amount") @db.Decimal(14, 2)
+  taxAmount      Decimal       @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  tdsAmount      Decimal       @default(0) @map("tds_amount") @db.Decimal(14, 2)
+  tcsAmount      Decimal       @default(0) @map("tcs_amount") @db.Decimal(14, 2)
+  totalAmount    Decimal       @map("total_amount") @db.Decimal(14, 2)
+  paidAmount     Decimal       @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  pendingAmount  Decimal       @default(0) @map("pending_amount") @db.Decimal(14, 2)
+  status         BillStatus    @default(UNPAID)
+  remarks        String?
+  createdBy      BigInt?       @map("created_by")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+
+  firm             Firm               @relation(fields: [firmId], references: [id])
+  party            Party              @relation(fields: [partyId], references: [id])
+  createdByUser    User?              @relation(fields: [createdBy], references: [id])
+  challans         SalesBillChallan[]
+  items            SalesBillItem[]
+  ewayBills        EwayBill[]
+  creditNotes      CreditNote[]
+  deliveryChallans DeliveryChallan[]
+
+  @@unique([firmId, fy, billType, billNoSeq])
+  @@index([firmId, fy, billDate(sort: Desc)])
+  @@index([firmId, fy, partyId])
+  @@index([firmId, fy, status])
+  @@index([firmId, fy, dueDate], map: "idx_sb_firm_fy_due")
+  @@map("sales_bills")
+}
+
+model SalesBillChallan {
+  id                BigInt    @id @default(autoincrement())
+  salesBillId       BigInt    @map("sales_bill_id")
+  deliveryChallanId BigInt?   @map("delivery_challan_id")
+  challanNumber     String?   @map("challan_number") @db.VarChar(60)
+  challanDate       DateTime? @map("challan_date") @db.Date
+  noChallan         Boolean   @default(false) @map("no_challan")
+
+  salesBill       SalesBill        @relation(fields: [salesBillId], references: [id], onDelete: Cascade)
+  deliveryChallan DeliveryChallan? @relation(fields: [deliveryChallanId], references: [id])
+  items           SalesBillItem[]
+
+  @@index([salesBillId])
+  @@index([deliveryChallanId])
+  @@map("sales_bill_challans")
+}
+
+model SalesBillItem {
+  id                  BigInt  @id @default(autoincrement())
+  salesBillId         BigInt  @map("sales_bill_id")
+  challanId           BigInt? @map("challan_id")
+  productId           BigInt? @map("product_id")
+  productNameSnapshot String? @map("product_name_snapshot") @db.VarChar(160)
+  itemCode            String? @map("item_code") @db.VarChar(60)
+  hsnCode             String? @map("hsn_code") @db.VarChar(15)
+  qty                 Decimal @db.Decimal(14, 3)
+  unit                Unit
+  rate                Decimal @db.Decimal(14, 2)
+  discountPct         Decimal @default(0) @map("discount_pct") @db.Decimal(6, 3)
+  discountAmount      Decimal @default(0) @map("discount_amount") @db.Decimal(14, 2)
+  gstPct              GstPct? @map("gst_pct")
+  cgstAmount          Decimal @default(0) @map("cgst_amount") @db.Decimal(14, 2)
+  sgstAmount          Decimal @default(0) @map("sgst_amount") @db.Decimal(14, 2)
+  igstAmount          Decimal @default(0) @map("igst_amount") @db.Decimal(14, 2)
+  amount              Decimal @db.Decimal(14, 2)
+  isLossProduct       Boolean @default(false) @map("is_loss_product")
+  lineNo              Int     @map("line_no") @db.SmallInt
+
+  salesBill SalesBill         @relation(fields: [salesBillId], references: [id], onDelete: Cascade)
+  challan   SalesBillChallan? @relation(fields: [challanId], references: [id])
+  product   Product?          @relation(fields: [productId], references: [id])
+
+  @@index([salesBillId, lineNo])
+  @@index([productId])
+  @@map("sales_bill_items")
+}
+
+// ─── E-Way Bills ─────────────────────────────────────────────────────────────
+
+model EwayBill {
+  id               BigInt    @id @default(autoincrement())
+  accountId        BigInt    @map("account_id")
+  firmId           BigInt    @map("firm_id")
+  fy               Int       @db.SmallInt
+  salesBillId      BigInt    @map("sales_bill_id")
+  ewayBillNo       String?   @map("eway_bill_no") @db.VarChar(20)
+  generatedAt      DateTime? @map("generated_at")
+  validUntil       DateTime? @map("valid_until")
+  distanceKm       Int?      @map("distance_km")
+  transportMode    String?   @map("transport_mode") @db.VarChar(30)
+  vehicleNo        String?   @map("vehicle_no") @db.VarChar(20)
+  transporterName  String?   @map("transporter_name") @db.VarChar(120)
+  transporterDocNo String?   @map("transporter_doc_no") @db.VarChar(60)
+  gspResponse      Json?     @map("gsp_response")
+  status           String    @default("ACTIVE") @db.VarChar(30)
+  cancelledAt      DateTime? @map("cancelled_at")
+  cancelReason     String?   @map("cancel_reason")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  salesBill SalesBill @relation(fields: [salesBillId], references: [id])
+
+  @@index([firmId, fy, generatedAt(sort: Desc)])
+  @@index([salesBillId])
+  @@map("eway_bills")
+}
+
+// ─── Credit Notes ────────────────────────────────────────────────────────────
+
+model CreditNote {
+  id          BigInt    @id @default(autoincrement())
+  accountId   BigInt    @map("account_id")
+  firmId      BigInt    @map("firm_id")
+  fy          Int       @db.SmallInt
+  salesBillId BigInt    @map("sales_bill_id")
+  noteNoSeq   Int       @map("note_no_seq")
+  noteDate    DateTime  @map("note_date") @db.Date
+  reason      String?
+  totalAmount Decimal   @map("total_amount") @db.Decimal(14, 2)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  salesBill SalesBill        @relation(fields: [salesBillId], references: [id])
+  items     CreditNoteItem[]
+
+  @@index([firmId, fy, noteDate(sort: Desc)])
+  @@index([salesBillId])
+  @@map("credit_notes")
+}
+
+model CreditNoteItem {
+  id                  BigInt  @id @default(autoincrement())
+  creditNoteId        BigInt  @map("credit_note_id")
+  productId           BigInt? @map("product_id")
+  productNameSnapshot String? @map("product_name_snapshot") @db.VarChar(160)
+  itemCode            String? @map("item_code") @db.VarChar(60)
+  hsnCode             String? @map("hsn_code") @db.VarChar(15)
+  qty                 Decimal @db.Decimal(14, 3)
+  unit                Unit
+  rate                Decimal @db.Decimal(14, 2)
+  gstPct              GstPct? @map("gst_pct")
+  amount              Decimal @db.Decimal(14, 2)
+  lineNo              Int     @map("line_no") @db.SmallInt
+
+  creditNote CreditNote @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+
+  @@index([creditNoteId])
+  @@map("credit_note_items")
+}
+
+// ─── Transactions / Payments ─────────────────────────────────────────────────
+
+model Transaction {
+  id               BigInt      @id @default(autoincrement())
+  accountId        BigInt      @map("account_id")
+  firmId           BigInt      @map("firm_id")
+  fy               Int         @db.SmallInt
+  refNumber        String?     @map("ref_number") @db.VarChar(40)
+  txnDate          DateTime    @map("txn_date") @db.Date
+  partyId          BigInt?     @map("party_id")
+  txnType          TxnType     @map("txn_type")
+  txnFor           TxnFor      @map("txn_for")
+  sourceTable      String?     @map("source_table") @db.VarChar(40)
+  sourceId         BigInt?     @map("source_id")
+  paymentMode      PaymentMode @map("payment_mode")
+  amount           Decimal     @db.Decimal(14, 2)
+  settlementAmount Decimal     @default(0) @map("settlement_amount") @db.Decimal(14, 2)
+  note             String?     @db.VarChar(250)
+  createdBy        BigInt?     @map("created_by")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  deletedAt        DateTime?   @map("deleted_at")
+
+  firm          Firm                    @relation(fields: [firmId], references: [id])
+  party         Party?                  @relation(fields: [partyId], references: [id])
+  createdByUser User?                   @relation(fields: [createdBy], references: [id])
+  allocations   BillPaymentAllocation[]
+
+  @@unique([firmId, refNumber])
+  @@index([firmId, fy, txnDate(sort: Desc)])
+  @@index([firmId, fy, partyId])
+  @@index([sourceTable, sourceId])
+  @@map("transactions")
+}
+
+model BillPaymentAllocation {
+  id              BigInt  @id @default(autoincrement())
+  transactionId   BigInt  @map("transaction_id")
+  billTable       String  @map("bill_table") @db.VarChar(20)
+  billId          BigInt  @map("bill_id")
+  allocatedAmount Decimal @map("allocated_amount") @db.Decimal(14, 2)
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId, billTable, billId])
+  @@index([billTable, billId])
+  @@index([transactionId])
+  @@map("bill_payment_allocations")
+}
+
+// ─── Purchase Bills ───────────────────────────────────────────────────────────
+
+model FirmPurchaseBillSettings {
+  firmId             BigInt      @id @map("firm_id")
+  showWithholdingTax Boolean     @default(false) @map("show_withholding_tax")
+  pdfTemplate        PdfTemplate @default(STANDARD) @map("pdf_template")
+
+  firm Firm @relation(fields: [firmId], references: [id])
+
+  @@map("firm_purchase_bill_settings")
+}
+
+model PurchaseBill {
+  id             BigInt           @id @default(autoincrement())
+  accountId      BigInt           @map("account_id")
+  firmId         BigInt           @map("firm_id")
+  fy             Int              @db.SmallInt
+  partyId        BigInt           @map("party_id")
+  billType       PurchaseBillType @map("bill_type")
+  billNo         String           @map("bill_no") @db.VarChar(40)
+  billDate       DateTime         @map("bill_date") @db.Date
+  dueDays        Int?             @map("due_days")
+  dueDate        DateTime?        @map("due_date") @db.Date
+  applyGst       Boolean          @default(false) @map("apply_gst")
+  netAmount      Decimal          @default(0) @map("net_amount") @db.Decimal(14, 2)
+  discountAmount Decimal          @default(0) @map("discount_amount") @db.Decimal(14, 2)
+  taxableAmount  Decimal          @default(0) @map("taxable_amount") @db.Decimal(14, 2)
+  cgstAmount     Decimal          @default(0) @map("cgst_amount") @db.Decimal(14, 2)
+  sgstAmount     Decimal          @default(0) @map("sgst_amount") @db.Decimal(14, 2)
+  igstAmount     Decimal          @default(0) @map("igst_amount") @db.Decimal(14, 2)
+  taxAmount      Decimal          @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  tdsAmount      Decimal          @default(0) @map("tds_amount") @db.Decimal(14, 2)
+  tcsAmount      Decimal          @default(0) @map("tcs_amount") @db.Decimal(14, 2)
+  totalAmount    Decimal          @map("total_amount") @db.Decimal(14, 2)
+  paidAmount     Decimal          @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  pendingAmount  Decimal          @default(0) @map("pending_amount") @db.Decimal(14, 2)
+  status         BillStatus       @default(UNPAID)
+  remarks        String?          @db.VarChar(200)
+  createdBy      BigInt?          @map("created_by")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  deletedAt      DateTime?        @map("deleted_at")
+
+  firm          Firm                    @relation(fields: [firmId], references: [id])
+  party         Party                   @relation(fields: [partyId], references: [id])
+  createdByUser User?                   @relation(fields: [createdBy], references: [id])
+  items         PurchaseBillItem[]
+  attachments   PurchaseBillAttachment[]
+
+  @@unique([firmId, fy, partyId, billNo])
+  @@index([firmId, fy, billDate(sort: Desc)])
+  @@index([firmId, fy, status])
+  @@index([firmId, fy, dueDate], map: "idx_pb_firm_fy_due")
+  @@map("purchase_bills")
+}
+
+model PurchaseBillItem {
+  id                  BigInt   @id @default(autoincrement())
+  purchaseBillId      BigInt   @map("purchase_bill_id")
+  productId           BigInt?  @map("product_id")
+  productNameSnapshot String?  @map("product_name_snapshot") @db.VarChar(160)
+  itemCode            String?  @map("item_code") @db.VarChar(60)
+  hsnCode             String?  @map("hsn_code") @db.VarChar(15)
+  qty                 Decimal  @db.Decimal(14, 3)
+  unit                Unit
+  rate                Decimal  @db.Decimal(14, 2)
+  discountPct         Decimal  @default(0) @map("discount_pct") @db.Decimal(6, 3)
+  discountAmount      Decimal  @default(0) @map("discount_amount") @db.Decimal(14, 2)
+  gstPct              GstPct?  @map("gst_pct")
+  cgstAmount          Decimal  @default(0) @map("cgst_amount") @db.Decimal(14, 2)
+  sgstAmount          Decimal  @default(0) @map("sgst_amount") @db.Decimal(14, 2)
+  igstAmount          Decimal  @default(0) @map("igst_amount") @db.Decimal(14, 2)
+  amount              Decimal  @db.Decimal(14, 2)
+  lineNo              Int      @map("line_no") @db.SmallInt
+
+  purchaseBill PurchaseBill @relation(fields: [purchaseBillId], references: [id], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId], references: [id])
+
+  @@index([purchaseBillId, lineNo])
+  @@index([productId])
+  @@map("purchase_bill_items")
+}
+
+model PurchaseBillAttachment {
+  id             BigInt   @id @default(autoincrement())
+  purchaseBillId BigInt   @map("purchase_bill_id")
+  s3Key          String   @map("s3_key")
+  mimeType       String   @map("mime_type") @db.VarChar(80)
+  sizeBytes      BigInt   @map("size_bytes")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  purchaseBill PurchaseBill @relation(fields: [purchaseBillId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseBillId])
+  @@map("purchase_bill_attachments")
+}
+
+// ─── Expenses ─────────────────────────────────────────────────────────────────
+
+model ExpenseCategory {
+  id        BigInt   @id @default(autoincrement())
+  firmId    BigInt   @map("firm_id")
+  name      String   @db.VarChar(80)
+  isDefault Boolean  @default(false) @map("is_default")
+
+  firm     Firm      @relation(fields: [firmId], references: [id])
+  expenses Expense[]
+
+  @@unique([firmId, name])
+  @@map("expense_categories")
+}
+
+model ExpenseSupplier {
+  id     BigInt @id @default(autoincrement())
+  firmId BigInt @map("firm_id")
+  name   String @db.VarChar(120)
+
+  firm     Firm      @relation(fields: [firmId], references: [id])
+  expenses Expense[]
+
+  @@unique([firmId, name])
+  @@map("expense_suppliers")
+}
+
+model ExpenseItem {
+  id     BigInt @id @default(autoincrement())
+  firmId BigInt @map("firm_id")
+  name   String @db.VarChar(120)
+
+  firm      Firm              @relation(fields: [firmId], references: [id])
+  lineItems ExpenseLineItem[]
+
+  @@unique([firmId, name])
+  @@map("expense_items")
+}
+
+model Expense {
+  id           BigInt      @id @default(autoincrement())
+  accountId    BigInt      @map("account_id")
+  firmId       BigInt      @map("firm_id")
+  fy           Int         @db.SmallInt
+  mode         ExpenseMode
+  expenseDate  DateTime    @map("expense_date") @db.Date
+  categoryId   BigInt      @map("category_id")
+  supplierId   BigInt?     @map("supplier_id")
+  amount       Decimal     @db.Decimal(14, 2)
+  note         String?     @db.VarChar(200)
+  attachmentKey String?    @map("attachment_key")
+  paidAmount   Decimal     @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  createdBy    BigInt?     @map("created_by")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  deletedAt    DateTime?   @map("deleted_at")
+
+  firm      Firm             @relation(fields: [firmId], references: [id])
+  category  ExpenseCategory  @relation(fields: [categoryId], references: [id])
+  supplier  ExpenseSupplier? @relation(fields: [supplierId], references: [id])
+  lineItems ExpenseLineItem[]
+
+  @@index([firmId, fy, expenseDate(sort: Desc)])
+  @@index([firmId, fy, categoryId])
+  @@map("expenses")
+}
+
+model ExpenseLineItem {
+  id        BigInt  @id @default(autoincrement())
+  expenseId BigInt  @map("expense_id")
+  itemId    BigInt  @map("item_id")
+  qty       Decimal @db.Decimal(14, 3)
+  rate      Decimal @db.Decimal(14, 2)
+  amount    Decimal @db.Decimal(14, 2)
+
+  expense Expense     @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  item    ExpenseItem @relation(fields: [itemId], references: [id])
+
+  @@index([expenseId])
+  @@map("expense_line_items")
+}
+
+// ─── Incomes ─────────────────────────────────────────────────────────────────
+
+model IncomeCategory {
+  id        BigInt    @id @default(autoincrement())
+  firmId    BigInt    @map("firm_id")
+  name      String    @db.VarChar(80)
+  isDefault Boolean   @default(false) @map("is_default")
+
+  firm    Firm     @relation(fields: [firmId], references: [id])
+  incomes Income[]
+
+  @@unique([firmId, name])
+  @@map("income_categories")
+}
+
+model IncomeSupplier {
+  id     BigInt @id @default(autoincrement())
+  firmId BigInt @map("firm_id")
+  name   String @db.VarChar(120)
+
+  firm    Firm     @relation(fields: [firmId], references: [id])
+  incomes Income[]
+
+  @@unique([firmId, name])
+  @@map("income_suppliers")
+}
+
+model Income {
+  id          BigInt    @id @default(autoincrement())
+  accountId   BigInt    @map("account_id")
+  firmId      BigInt    @map("firm_id")
+  fy          Int       @db.SmallInt
+  incomeDate  DateTime  @map("income_date") @db.Date
+  categoryId  BigInt    @map("category_id")
+  supplierId  BigInt?   @map("supplier_id")
+  amount      Decimal   @db.Decimal(14, 2)
+  note        String?   @db.VarChar(200)
+  createdBy   BigInt?   @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  firm     Firm            @relation(fields: [firmId], references: [id])
+  category IncomeCategory  @relation(fields: [categoryId], references: [id])
+  supplier IncomeSupplier? @relation(fields: [supplierId], references: [id])
+
+  @@index([firmId, fy, incomeDate(sort: Desc)])
+  @@index([firmId, fy, categoryId])
+  @@map("incomes")
+}

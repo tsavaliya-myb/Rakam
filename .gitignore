@@ -1,0 +1,48 @@
+# Claude / project tooling
+.claude/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Test coverage
+coverage/
+
+# Docs (generated / private)
+docs/
+
+# Misc
+*.tsbuildinfo
+error.md
