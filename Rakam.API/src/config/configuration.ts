@@ -19,6 +19,7 @@ export default () => ({
   },
   msg91: {
     authKey: process.env.MSG91_AUTH_KEY,
+    widgetId: process.env.MSG91_WIDGET_ID,
     templateId: process.env.MSG91_TEMPLATE_ID,
     senderId: process.env.MSG91_SENDER_ID,
   },

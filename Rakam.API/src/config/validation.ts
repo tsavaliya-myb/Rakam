@@ -11,7 +11,7 @@ class EnvVars {
   @IsEnum(NodeEnv)
   NODE_ENV: NodeEnv = NodeEnv.Development;
 
-  @IsNumber()
+  // @IsNumber()
   @IsOptional()
   PORT = 3000;
 
@@ -25,7 +25,8 @@ class EnvVars {
   @IsString()
   REDIS_HOST = 'localhost';
 
-  @IsNumber()
+  // @IsNumber()
+  @IsOptional()
   REDIS_PORT = 6379;
 
   @IsString()

@@ -1,6 +1,6 @@
 /**
  * Centralised Redis cache-key builders.
- * Every key follows the pattern documented in billsaathi-cache-keys.md.
+ * Every key follows the pattern documented in rakam-cache-keys.md.
  * Import the relevant namespace in each module — never construct key strings inline.
  *
  * TTL constants (seconds) are co-located so callers never hard-code them.

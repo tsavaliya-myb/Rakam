@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { X, AlertCircle, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { PlanType } from "@/types";
 
 interface SubscriptionBannerProps {
   remainingDays: number;
   planName: string;
-  planType: "trial" | "starter" | "professional" | "enterprise";
+  planType: PlanType;
 }
 
 export function SubscriptionBanner({
@@ -21,6 +22,7 @@ export function SubscriptionBanner({
 
   const isTrial = planType === "trial";
   const isUrgent = remainingDays <= 7;
+  const isExpired = remainingDays === 0;
 
   return (
     <div
@@ -44,22 +46,25 @@ export function SubscriptionBanner({
           isUrgent ? "text-amber-800" : "text-blue-800"
         )}
       >
-        {isTrial ? (
+        {isExpired ? (
+          <>
+            Your <strong>{planName}</strong> has <strong>expired</strong>. Upgrade now to restore access.
+          </>
+        ) : isTrial ? (
           <>
             Your <strong>{planName}</strong> expires in{" "}
-            <strong>{remainingDays} days</strong>. Upgrade now to retain all
-            features.
+            <strong>{remainingDays} day{remainingDays !== 1 ? "s" : ""}</strong>. Upgrade now to retain all features.
           </>
         ) : (
           <>
             Your <strong>{planName}</strong> plan renews in{" "}
-            <strong>{remainingDays} days</strong>.
+            <strong>{remainingDays} day{remainingDays !== 1 ? "s" : ""}</strong>.
           </>
         )}
       </p>
       <button className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 transition-colors flex-shrink-0">
         <Rocket size={12} />
-        Upgrade Plan
+        {isTrial ? "Upgrade Plan" : "Renew Plan"}
       </button>
       <button
         onClick={() => setVisible(false)}

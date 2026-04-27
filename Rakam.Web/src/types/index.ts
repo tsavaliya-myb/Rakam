@@ -186,6 +186,7 @@ export interface Subscription {
   remainingDays: number;
   firmLimit: number;
   firmsUsed: number;
+  isActive: boolean;
 }
 
 // ── Dashboard Stats ──────────────────────────

@@ -1,5 +1,5 @@
 // Bill Saathi — Prisma schema
-// Models added per billsaathi-database-schema.md as modules are implemented.
+// Models added per rakam-database-schema.md as modules are implemented.
 
 generator client {
   provider = "prisma-client-js"
@@ -134,6 +134,15 @@ enum ExpenseMode {
   @@map("expense_mode_enum")
 }
 
+enum PlanType {
+  TRIAL
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+
+  @@map("plan_type_enum")
+}
+
 // ─── Identity & Tenancy ──────────────────────────────────────────────────────
 
 model Account {
@@ -145,8 +154,9 @@ model Account {
   updatedAt     DateTime  @updatedAt @map("updated_at")
   deletedAt     DateTime? @map("deleted_at")
 
-  users User[]
-  firms Firm[]
+  users        User[]
+  firms        Firm[]
+  subscription Subscription?
 
   @@map("accounts")
 }
@@ -171,6 +181,25 @@ model User {
 
   @@index([accountId])
   @@map("users")
+}
+
+// ─── Subscription ────────────────────────────────────────────────────────────
+
+model Subscription {
+  id        BigInt   @id @default(autoincrement())
+  accountId BigInt   @unique @map("account_id")
+  planType  PlanType @map("plan_type")
+  planName  String   @map("plan_name") @db.VarChar(60)
+  startsAt  DateTime @map("starts_at")
+  expiresAt DateTime @map("expires_at")
+  firmLimit Int      @default(1) @map("firm_limit")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@map("subscriptions")
 }
 
 // ─── Firms ───────────────────────────────────────────────────────────────────

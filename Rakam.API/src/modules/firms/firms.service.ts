@@ -18,9 +18,7 @@ import { UpdateBankDetailsDto } from './dto/update-bank-details.dto';
 import { CreateDispatchAddressDto } from './dto/create-dispatch-address.dto';
 import { UpdateDispatchAddressDto } from './dto/update-dispatch-address.dto';
 import { FirmKeys, SettingsKeys } from '../../common/cache-keys';
-
-// ─── Plan limits (placeholder; wire to Subscription model when implemented) ──
-const FREE_FIRM_LIMIT = 1;
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +43,7 @@ export class FirmsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly subscriptions: SubscriptionsService,
   ) {}
 
   // ── list ─────────────────────────────────────────────────────────────────
@@ -72,15 +71,14 @@ export class FirmsService {
       },
     });
 
-    const total = firms.length;
-    const active = firms.length; // all non-deleted are active
+    const planLimit = await this.subscriptions.getFirmLimit(accountId);
 
     return {
       data: serialise(firms),
       stats: {
-        total,
-        active,
-        planLimit: FREE_FIRM_LIMIT,
+        total: firms.length,
+        active: firms.length,
+        planLimit,
       },
     };
   }
@@ -94,9 +92,10 @@ export class FirmsService {
       where: { accountId, deletedAt: null },
     });
 
-    if (existingCount >= FREE_FIRM_LIMIT) {
+    const limit = await this.subscriptions.getFirmLimit(accountId);
+    if (existingCount >= limit) {
       throw new ForbiddenException(
-        `Your plan allows up to ${FREE_FIRM_LIMIT} firm(s). Please upgrade to add more.`,
+        `Your plan allows up to ${limit} firm(s). Please upgrade to add more.`,
       );
     }
 
@@ -135,6 +134,7 @@ export class FirmsService {
     }
 
     await this.redis.del(FirmKeys.list(accountId));
+    await this.subscriptions.invalidateCache(accountId);
     return serialise(await this.findOne(user, firm.id));
   }
 
@@ -225,6 +225,7 @@ export class FirmsService {
     });
 
     await this.invalidateFirmCaches(user.accountId, id);
+    await this.subscriptions.invalidateCache(user.accountId);
     return { success: true };
   }
 

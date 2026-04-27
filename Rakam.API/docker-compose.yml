@@ -5,9 +5,9 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: billsaathi
-      POSTGRES_PASSWORD: billsaathi
-      POSTGRES_DB: billsaathi
+      POSTGRES_USER: rakam
+      POSTGRES_PASSWORD: rakam
+      POSTGRES_DB: rakam
     ports:
       - "5432:5432"
     volumes:
@@ -18,9 +18,9 @@ services:
     restart: unless-stopped
     environment:
       DB_HOST: postgres
-      DB_USER: billsaathi
-      DB_PASSWORD: billsaathi
-      DB_NAME: billsaathi
+      DB_USER: rakam
+      DB_PASSWORD: rakam
+      DB_NAME: rakam
       POOL_MODE: transaction
       MAX_CLIENT_CONN: "1000"
       DEFAULT_POOL_SIZE: "25"

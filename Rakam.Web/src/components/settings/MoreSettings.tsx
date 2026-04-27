@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Save, Rocket, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Save, Rocket, AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useSubscriptionStore } from "@/store/useSubscriptionStore";
+import type { PlanType } from "@/types";
 import { otherSettingsSchema, type OtherSettingsValues } from "@/lib/schemas/settings.schema";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -132,27 +134,65 @@ export function OtherSettings() {
   );
 }
 
+const PLAN_BADGE: Record<PlanType, { label: string; cls: string }> = {
+  trial:        { label: "TRIAL",      cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  starter:      { label: "STARTER",    cls: "bg-blue-100 text-blue-700 border-blue-200" },
+  professional: { label: "PRO",        cls: "bg-purple-100 text-purple-700 border-purple-200" },
+  enterprise:   { label: "ENTERPRISE", cls: "bg-green-100 text-green-700 border-green-200" },
+};
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 /* ── My Subscriptions ── */
 export function SubscriptionSettings() {
+  const { subscription, isLoading, hasFetched, fetchSubscription } = useSubscriptionStore();
+
+  useEffect(() => {
+    if (!hasFetched) fetchSubscription();
+  }, [hasFetched, fetchSubscription]);
+
+  if (isLoading || !hasFetched) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!subscription) {
+    return (
+      <div className="bg-white rounded-2xl border border-border p-5">
+        <p className="text-sm text-muted-foreground">Unable to load subscription details.</p>
+      </div>
+    );
+  }
+
+  const badge = PLAN_BADGE[subscription.planType] ?? PLAN_BADGE.trial;
+  const isTrial = subscription.planType === "trial";
+  const isUrgent = subscription.remainingDays <= 7;
+  const isExpired = subscription.remainingDays === 0;
+
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-2xl border border-border p-5">
         <div className="flex items-start justify-between mb-4">
           <div>
             <p className="font-semibold text-foreground">Current Plan</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Billing & subscription info</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Billing &amp; subscription info</p>
           </div>
-          <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
-            TRIAL
+          <span className={`inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-bold border ${badge.cls}`}>
+            {badge.label}
           </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Plan Name",      value: "Trial Plan" },
-            { label: "Plan Type",      value: "Trial" },
-            { label: "Duration",       value: "7 days" },
-            { label: "Expires On",     value: "28 Apr 2026" },
+            { label: "Plan Name",   value: subscription.planName },
+            { label: "Plan Type",   value: subscription.planType.charAt(0).toUpperCase() + subscription.planType.slice(1) },
+            { label: "Firms Used",  value: `${subscription.firmsUsed} / ${subscription.firmLimit}` },
+            { label: "Expires On",  value: formatDate(subscription.expiresOn) },
           ].map(({ label, value }) => (
             <div key={label} className="bg-secondary rounded-xl px-4 py-3">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
@@ -161,15 +201,23 @@ export function SubscriptionSettings() {
           ))}
         </div>
 
-        <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-3">
-          <AlertCircle size={16} className="text-amber-500 flex-shrink-0" />
-          <p className="text-xs text-amber-800 font-medium flex-1">
-            <strong>5 days remaining.</strong> Upgrade to retain access to all features.
-          </p>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 transition-colors flex-shrink-0">
-            <Rocket size={12} /> Upgrade
-          </button>
-        </div>
+        {(isUrgent || isTrial) && (
+          <div className={`mt-4 p-3 rounded-xl flex items-center gap-3 border ${isUrgent ? "bg-amber-50 border-amber-200" : "bg-blue-50 border-blue-200"}`}>
+            <AlertCircle size={16} className={`flex-shrink-0 ${isUrgent ? "text-amber-500" : "text-blue-500"}`} />
+            <p className={`text-xs font-medium flex-1 ${isUrgent ? "text-amber-800" : "text-blue-800"}`}>
+              {isExpired ? (
+                <><strong>Your plan has expired.</strong> Upgrade to restore access to all features.</>
+              ) : (
+                <><strong>{subscription.remainingDays} day{subscription.remainingDays !== 1 ? "s" : ""} remaining.</strong> {isTrial ? "Upgrade to retain access to all features." : "Renew to avoid interruption."}</>
+              )}
+            </p>
+            {subscription.planType !== "enterprise" && (
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 transition-colors flex-shrink-0">
+                <Rocket size={12} /> {isTrial ? "Upgrade" : "Renew"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

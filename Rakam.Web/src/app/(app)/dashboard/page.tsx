@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useAppStore } from "@/store/useAppStore";
+import { useSubscriptionStore } from "@/store/useSubscriptionStore";
 import { SubscriptionBanner } from "@/components/dashboard/SubscriptionBanner";
 import { ModuleCards } from "@/components/dashboard/ModuleCards";
 import { QuickStats } from "@/components/dashboard/QuickStats";
@@ -23,16 +25,27 @@ const MOCK_STATS = {
 
 export default function DashboardPage() {
   const { showStatistics, toggleStatistics, financialYear } = useAppStore();
+  const { subscription, hasFetched, fetchSubscription } = useSubscriptionStore();
+
+  useEffect(() => {
+    if (!hasFetched) fetchSubscription();
+  }, [hasFetched, fetchSubscription]);
+
+  const showBanner =
+    subscription !== null &&
+    subscription.isActive &&
+    (subscription.planType === "trial" || subscription.remainingDays <= 30);
 
   return (
     <div className="p-6">
 
-      {/* Subscription alert */}
-      <SubscriptionBanner
-        remainingDays={5}
-        planName="Trial Plan"
-        planType="trial"
-      />
+      {showBanner && (
+        <SubscriptionBanner
+          remainingDays={subscription!.remainingDays}
+          planName={subscription!.planName}
+          planType={subscription!.planType}
+        />
+      )}
 
       {/* Page header */}
       <div className="flex items-start justify-between mb-6 gap-4">
@@ -41,12 +54,11 @@ export default function DashboardPage() {
             Dashboard
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Welcome back, Arun. Here&apos;s your business overview for FY {financialYear}.
+            Welcome back. Here&apos;s your business overview for FY {financialYear}.
           </p>
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
-          {/* Statistics toggle */}
           <div className="flex items-center gap-2.5 bg-white rounded-xl px-4 py-2.5 border border-border">
             <Switch
               id="show-stats"
@@ -61,7 +73,6 @@ export default function DashboardPage() {
             </Label>
           </div>
 
-          {/* New Bill CTA */}
           <Link
             href="/bill/add"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity whitespace-nowrap bg-gradient-to-r from-brand-900 to-brand-600"
@@ -72,7 +83,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Module Cards View (stats OFF) ── */}
       {!showStatistics && (
         <>
           <ModuleCards />
@@ -80,7 +90,6 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* ── Statistics View (stats ON) ── */}
       {showStatistics && (
         <StatisticsPanel stats={MOCK_STATS} financialYear={financialYear} />
       )}
