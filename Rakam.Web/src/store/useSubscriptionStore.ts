@@ -18,8 +18,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     if (get().isLoading) return;
     set({ isLoading: true });
     try {
-      const { subscriptionApi } = await import("@/lib/api");
-      const data = await subscriptionApi.getMySubscription();
+      const { subscriptionsService } = await import("@/services/subscriptions");
+      const data = await subscriptionsService.getMySubscription();
       set({ subscription: data, isLoading: false, hasFetched: true });
     } catch {
       set({ isLoading: false, hasFetched: true });

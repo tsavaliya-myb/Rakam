@@ -9,8 +9,8 @@ interface AppState {
   setSidebarCollapsed: (v: boolean) => void;
 
   // ── Active Firm ──────────────────────────────
-  activeFirmId: string;
-  activeFirmName: string;
+  activeFirmId: string | null;
+  activeFirmName: string | null;
   setActiveFirm: (id: string, name: string) => void;
 
   // ── Financial Year ───────────────────────────
@@ -37,8 +37,8 @@ export const useAppStore = create<AppState>()(
       setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
 
       // Firm
-      activeFirmId: "firm-1",
-      activeFirmName: "Shreeji Traders",
+      activeFirmId: null,
+      activeFirmName: null,
       setActiveFirm: (id, name) =>
         set({ activeFirmId: id, activeFirmName: name }),
 

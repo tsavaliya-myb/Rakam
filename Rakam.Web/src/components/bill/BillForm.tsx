@@ -1,26 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import {
-  ChevronDown, Calendar, StickyNote, X, Plus, ChevronRight,
+  ChevronDown, Calendar, StickyNote, X, Plus, ChevronRight, Loader2,
 } from "lucide-react";
 import { billFormSchema, type BillFormValues } from "@/lib/schemas/bill.schema";
+import { useNextBillNo, useCreateSalesBill } from "@/hooks/api/use-sales-bills";
+import { usePartiesDropdown } from "@/hooks/api/use-parties";
 import { LineItemsTable } from "./LineItemsTable";
 import { BillTotals } from "./BillTotals";
 import { ChallanSection } from "./ChallanSection";
 import { cn } from "@/lib/utils";
-
-const MOCK_PARTIES = [
-  { id: "p1", name: "Mehta Co.",           discount: 5,  dueDays: 15 },
-  { id: "p2", name: "Patel Enterprises",    discount: 0,  dueDays: 30 },
-  { id: "p3", name: "Sharma Traders",       discount: 2,  dueDays: 7  },
-  { id: "p4", name: "Joshi Limited",        discount: 0,  dueDays: 15 },
-  { id: "p5", name: "Gupta & Co.",          discount: 3,  dueDays: 45 },
-  { id: "p6", name: "Desai Manufacturing",  discount: 0,  dueDays: 0  },
-];
 
 const GST_RATES = [0, 0.25, 1, 1.5, 3, 5, 6, 7.5, 12, 18, 28];
 
@@ -36,6 +29,10 @@ export function BillForm() {
   const [showRemark, setShowRemark] = useState(false);
   const [selectedGst, setSelectedGst] = useState(18);
 
+  const { data: partiesDropdown = [], isLoading: partiesLoading } = usePartiesDropdown();
+  const { data: nextBillNoData } = useNextBillNo();
+  const createBill = useCreateSalesBill();
+
   const today = new Date().toISOString().split("T")[0];
 
   const methods = useForm<BillFormValues>({
@@ -43,7 +40,7 @@ export function BillForm() {
     defaultValues: {
       partyId: "",
       applyGst: false,
-      billNo: "4",
+      billNo: "",
       billDate: today,
       dueDays: 15,
       dueDate: "",
@@ -75,10 +72,15 @@ export function BillForm() {
     formState: { errors, isSubmitting },
   } = methods;
 
-  const applyGst = watch("applyGst");
-  const dueDays = watch("dueDays");
+  // Populate bill number from API when loaded
+  useEffect(() => {
+    if (nextBillNoData?.billNo) {
+      setValue("billNo", nextBillNoData.billNo);
+    }
+  }, [nextBillNoData, setValue]);
 
-  // Auto-compute due date when dueDays changes
+  const applyGst = watch("applyGst");
+
   function handleDueDaysChange(e: React.ChangeEvent<HTMLInputElement>) {
     const days = Number(e.target.value);
     setValue("dueDays", days);
@@ -89,30 +91,77 @@ export function BillForm() {
     }
   }
 
-  // Party select — auto-fill defaults
   function handlePartySelect(e: React.ChangeEvent<HTMLSelectElement>) {
-    const party = MOCK_PARTIES.find((p) => p.id === e.target.value);
-    setValue("partyId", e.target.value);
+    const partyId = e.target.value;
+    const party = partiesDropdown.find((p) => p.id === partyId);
+    setValue("partyId", partyId);
     if (party) {
-      setValue("discountPercent", party.discount);
-      setValue("dueDays", party.dueDays);
-      if (party.dueDays > 0) {
-        const d = new Date();
-        d.setDate(d.getDate() + party.dueDays);
-        setValue("dueDate", d.toISOString().split("T")[0]);
+      if (party.balance !== undefined) {
+        // balance info available
       }
     }
   }
 
-  function onSubmit(data: BillFormValues) {
-    console.log("SUBMIT:", data);
-    // TODO: Call API via TanStack Query mutation
+  async function onSubmit(data: BillFormValues) {
+    await createBill.mutateAsync({
+      billDate: data.billDate,
+      billType: "TAX_INVOICE",
+      dueDate: data.dueDate || undefined,
+      dueDays: data.dueDays,
+      partyId: data.partyId,
+      lineItems: data.lineItems.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        itemCode: item.itemCode,
+        hsnCode: item.hsnCode,
+        qty: item.qty,
+        unit: item.unit,
+        rate: item.rate,
+        discount: item.discount,
+        gst: applyGst ? selectedGst : undefined,
+      })),
+      discountPercent: data.discountPercent,
+      remark: data.remark,
+    });
+    router.push("/bill");
   }
 
-  function onSaveAndNew(data: BillFormValues) {
-    console.log("SAVE & NEW:", data);
-    reset();
+  async function onSaveAndNew(data: BillFormValues) {
+    await createBill.mutateAsync({
+      billDate: data.billDate,
+      billType: "TAX_INVOICE",
+      dueDate: data.dueDate || undefined,
+      dueDays: data.dueDays,
+      partyId: data.partyId,
+      lineItems: data.lineItems.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        itemCode: item.itemCode,
+        hsnCode: item.hsnCode,
+        qty: item.qty,
+        unit: item.unit,
+        rate: item.rate,
+        discount: item.discount,
+        gst: applyGst ? selectedGst : undefined,
+      })),
+      discountPercent: data.discountPercent,
+      remark: data.remark,
+    });
+    reset({
+      partyId: "",
+      applyGst: false,
+      billNo: nextBillNoData?.billNo ?? "",
+      billDate: today,
+      dueDays: 15,
+      dueDate: "",
+      challans: [],
+      lineItems: [{ id: crypto.randomUUID(), productName: "", itemCode: "", hsnCode: "", qty: 1, unit: "Pcs", rate: 0, discount: 0, amount: 0 }],
+      discountPercent: 0,
+      remark: "",
+    });
   }
+
+  const busy = isSubmitting || createBill.isPending;
 
   return (
     <FormProvider {...methods}>
@@ -135,15 +184,22 @@ export function BillForm() {
               <div className="relative">
                 <select
                   onChange={handlePartySelect}
-                  className={cn(inputCls, "appearance-none pr-8")}
+                  disabled={partiesLoading}
+                  className={cn(inputCls, "appearance-none pr-8", errors.partyId && "border-destructive")}
                   defaultValue=""
                 >
-                  <option value="" disabled>Select party</option>
-                  {MOCK_PARTIES.map((p) => (
+                  <option value="" disabled>
+                    {partiesLoading ? "Loading parties…" : "Select party"}
+                  </option>
+                  {partiesDropdown.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                {partiesLoading ? (
+                  <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin pointer-events-none" />
+                ) : (
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                )}
               </div>
               <button type="button" className="text-[11px] text-brand-700 hover:underline mt-1 font-medium">
                 + Add Party
@@ -244,7 +300,6 @@ export function BillForm() {
         {/* ── Section 4: Remarks + Totals ── */}
         <div className="flex flex-col lg:flex-row gap-5 items-start">
 
-          {/* Remark */}
           <div className="flex-1 bg-white rounded-2xl border border-border p-5">
             {!showRemark ? (
               <button
@@ -278,7 +333,6 @@ export function BillForm() {
             )}
           </div>
 
-          {/* Totals */}
           <div className="w-full lg:w-auto">
             <BillTotals applyGst={applyGst} gstPercent={selectedGst} />
           </div>
@@ -289,10 +343,10 @@ export function BillForm() {
           <button
             type="button"
             onClick={handleSubmit(onSaveAndNew)}
-            disabled={isSubmitting}
+            disabled={busy}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-60"
           >
-            <Plus size={15} />
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
             Save & Create New Bill
           </button>
 
@@ -306,11 +360,12 @@ export function BillForm() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={busy}
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors disabled:opacity-60 ml-auto"
           >
+            {busy ? <Loader2 size={15} className="animate-spin" /> : null}
             Submit
-            <ChevronRight size={15} />
+            {!busy && <ChevronRight size={15} />}
           </button>
         </div>
       </form>

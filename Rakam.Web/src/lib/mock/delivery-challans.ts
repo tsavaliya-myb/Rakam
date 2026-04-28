@@ -1,6 +1,5 @@
-import type { DeliveryChallan } from "@/types";
-
-export const MOCK_DELIVERY_CHALLANS: DeliveryChallan[] = [
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MOCK_DELIVERY_CHALLANS: any[] = [
   {
     id: "dc1",
     dcNo: "DC-001",

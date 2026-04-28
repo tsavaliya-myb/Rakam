@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
-  Bell, Globe, ChevronDown, LogOut, LayoutGrid, Search,
+  Bell, Globe, ChevronDown, LogOut, LayoutGrid, Search, FileText, Package, Users,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useGlobalSearch } from "@/hooks/api/use-dashboard";
 import { cn } from "@/lib/utils";
 
 const FY_OPTIONS = ["2024-25", "2025-26", "2026-27", "2027-28"];
@@ -13,18 +14,58 @@ export function TopBar() {
   const { financialYear, setFinancialYear } = useAppStore();
   const [profileOpen, setProfileOpen] = useState(false);
   const [fyOpen, setFyOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const { data: searchResults, isFetching: searchFetching } = useGlobalSearch(searchQuery);
+
+  const hasResults = searchResults && (
+    searchResults.parties.length > 0 ||
+    searchResults.products.length > 0 ||
+    searchResults.salesBills.length > 0 ||
+    searchResults.purchaseBills.length > 0
+  );
+
+  // Close search dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // ⌘K / Ctrl+K to focus search
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        const input = searchRef.current?.querySelector("input");
+        input?.focus();
+        setSearchOpen(true);
+      }
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, []);
 
   return (
     <header className="h-[62px] flex-shrink-0 bg-white border-b border-border flex items-center px-6 gap-4 z-10 relative">
 
       {/* ── Global Search ── */}
-      <div className="flex-1 max-w-md relative">
+      <div className="flex-1 max-w-md relative" ref={searchRef}>
         <Search
           size={15}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none z-10"
         />
         <input
           type="text"
+          value={searchQuery}
+          onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+          onFocus={() => setSearchOpen(true)}
           placeholder="Search modules, bills, products..."
           className={cn(
             "w-full pl-9 pr-12 py-2 text-sm rounded-xl outline-none transition-all",
@@ -35,6 +76,94 @@ export function TopBar() {
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-muted-foreground/50 select-none hidden md:block">
           ⌘K
         </span>
+
+        {/* Search results dropdown */}
+        {searchOpen && searchQuery.length >= 2 && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-border py-2 z-50 max-h-80 overflow-y-auto animate-fade-in">
+            {searchFetching && (
+              <p className="px-4 py-3 text-xs text-muted-foreground">Searching…</p>
+            )}
+
+            {!searchFetching && !hasResults && (
+              <p className="px-4 py-3 text-xs text-muted-foreground">No results found.</p>
+            )}
+
+            {!searchFetching && searchResults && searchResults.parties.length > 0 && (
+              <div>
+                <p className="px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+                  Parties
+                </p>
+                {searchResults.parties.map((p) => (
+                  <button
+                    key={p.id}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-brand-50 transition-colors"
+                    onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
+                  >
+                    <Users size={13} className="text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm text-foreground font-medium truncate">{p.name}</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground capitalize">{p.type.toLowerCase()}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!searchFetching && searchResults && searchResults.products.length > 0 && (
+              <div>
+                <p className="px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+                  Products
+                </p>
+                {searchResults.products.map((p) => (
+                  <button
+                    key={p.id}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-brand-50 transition-colors"
+                    onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
+                  >
+                    <Package size={13} className="text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm text-foreground font-medium truncate">{p.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!searchFetching && searchResults && searchResults.salesBills.length > 0 && (
+              <div>
+                <p className="px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+                  Sales Bills
+                </p>
+                {searchResults.salesBills.map((b) => (
+                  <button
+                    key={b.id}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-brand-50 transition-colors"
+                    onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
+                  >
+                    <FileText size={13} className="text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm text-foreground font-medium">{b.billNo}</span>
+                    <span className="text-xs text-muted-foreground truncate ml-1">— {b.partyName}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!searchFetching && searchResults && searchResults.purchaseBills.length > 0 && (
+              <div>
+                <p className="px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+                  Purchase Bills
+                </p>
+                {searchResults.purchaseBills.map((b) => (
+                  <button
+                    key={b.id}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-brand-50 transition-colors"
+                    onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
+                  >
+                    <FileText size={13} className="text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm text-foreground font-medium">{b.billNo}</span>
+                    <span className="text-xs text-muted-foreground truncate ml-1">— {b.partyName}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-1.5 ml-auto">

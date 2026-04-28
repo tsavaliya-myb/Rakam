@@ -43,7 +43,7 @@ export default function ExpenseTrackerPage() {
   }
 
   function handleAdd(data: AddExpenseFormValues) {
-    const newExpense: Expense = {
+    const newExpense = {
       id: `exp${Date.now()}`,
       date: data.date,
       category: data.category,
@@ -55,7 +55,7 @@ export default function ExpenseTrackerPage() {
       qty: data.qty,
       rate: data.rate,
     };
-    setExpenses((prev) => [newExpense, ...prev]);
+    setExpenses((prev) => [newExpense as Expense, ...prev]);
     setAddModalOpen(false);
     toast.success("Expense added successfully");
   }

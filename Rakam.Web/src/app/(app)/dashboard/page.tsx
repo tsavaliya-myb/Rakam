@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useAppStore } from "@/store/useAppStore";
 import { useSubscriptionStore } from "@/store/useSubscriptionStore";
+import { useDashboardStats } from "@/hooks/api/use-dashboard";
 import { SubscriptionBanner } from "@/components/dashboard/SubscriptionBanner";
 import { ModuleCards } from "@/components/dashboard/ModuleCards";
 import { QuickStats } from "@/components/dashboard/QuickStats";
@@ -12,20 +13,13 @@ import { StatisticsPanel } from "@/components/dashboard/StatisticsPanel";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
-const MOCK_STATS = {
-  totalSales: 412000,
-  totalPurchase: 255000,
-  totalExpense: 38500,
-  netIncome: 118500,
-  salesChange: 12.4,
-  purchaseChange: -3.2,
-  expenseChange: 5.8,
-  incomeChange: 18.6,
-};
-
 export default function DashboardPage() {
   const { showStatistics, toggleStatistics, financialYear } = useAppStore();
   const { subscription, hasFetched, fetchSubscription } = useSubscriptionStore();
+
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useDashboardStats(
+    showStatistics ? { financialYear } : undefined
+  );
 
   useEffect(() => {
     if (!hasFetched) fetchSubscription();
@@ -91,7 +85,12 @@ export default function DashboardPage() {
       )}
 
       {showStatistics && (
-        <StatisticsPanel stats={MOCK_STATS} financialYear={financialYear} />
+        <StatisticsPanel
+          stats={stats ?? null}
+          isLoading={statsLoading}
+          isError={statsError}
+          financialYear={financialYear}
+        />
       )}
     </div>
   );

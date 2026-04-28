@@ -1,6 +1,5 @@
-import type { Product } from "@/types";
-
-export const MOCK_PRODUCTS: Product[] = [
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MOCK_PRODUCTS: any[] = [
   { id: "pr1",  name: "Cotton Fabric",    itemCode: "CTN-001",  hsnCode: "5208",  rate: 250,  unit: "Mtr",  gst: 5,   description: "High-quality cotton fabric, 44 inch width" },
   { id: "pr2",  name: "Polyester Thread", itemCode: "PLY-002",  hsnCode: "5402",  rate: 45,   unit: "KG",   gst: 12,  description: "" },
   { id: "pr3",  name: "Dye Chemical A",   itemCode: "DYE-003",  hsnCode: "3204",  rate: 820,  unit: "KG",   gst: 18,  description: "Reactive dye for cotton fabric" },

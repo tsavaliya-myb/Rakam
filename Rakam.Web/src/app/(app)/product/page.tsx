@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Plus, Search, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Pencil, Trash2, Loader2 } from "lucide-react";
 import { ProductModal } from "@/components/product/ProductModal";
-import { MOCK_PRODUCTS } from "@/lib/mock/products";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Product } from "@/types";
 import type { ProductFormValues } from "@/lib/schemas/party-product.schema";
-import { toast } from "sonner";
+import {
+  useProducts,
+  useCreateProduct,
+  useUpdateProduct,
+  useDeleteProduct,
+} from "@/hooks/api/use-products";
 
 export default function ProductPage() {
   const [search, setSearch]       = useState("");
@@ -16,23 +20,48 @@ export default function ProductPage() {
   const [pageSize, setPageSize]   = useState(20);
   const [openMenu, setOpenMenu]   = useState<string | null>(null);
 
+  const { data, isLoading, isError, error } = useProducts();
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
+
+  const products = data?.data ?? [];
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return MOCK_PRODUCTS;
+    if (!search.trim()) return products;
     const q = search.toLowerCase();
-    return MOCK_PRODUCTS.filter(
+    return products.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         (p.itemCode?.toLowerCase().includes(q) ?? false) ||
         (p.hsnCode?.toLowerCase().includes(q) ?? false)
     );
-  }, [search]);
+  }, [search, products]);
 
   function openAdd() { setEditProd(undefined); setModalOpen(true); }
   function openEdit(p: Product) { setEditProd(p); setModalOpen(true); }
 
-  function handleSubmit(data: ProductFormValues) {
-    toast.success(editProd ? `${data.name} updated` : `${data.name} added`);
+  async function handleSubmit(formData: ProductFormValues) {
+    const dto = {
+      name: formData.name,
+      rate: formData.rate,
+      unit: formData.unit,
+      gst: formData.gst ? Number(formData.gst) : undefined,
+      itemCode: formData.itemCode || undefined,
+      hsnCode: formData.hsnCode || undefined,
+      description: formData.description || undefined,
+    };
+    if (editProd) {
+      await updateProduct.mutateAsync({ id: editProd.id, dto });
+    } else {
+      await createProduct.mutateAsync(dto);
+    }
     setModalOpen(false);
+  }
+
+  function handleDelete(product: Product) {
+    deleteProduct.mutate(product.id);
+    setOpenMenu(null);
   }
 
   return (
@@ -86,10 +115,22 @@ export default function ProductPage() {
           </thead>
 
           <tbody>
-            {filtered.slice(0, pageSize).length === 0 ? (
+            {isLoading ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-16 text-center">
+                  <Loader2 size={24} className="animate-spin text-muted-foreground mx-auto" />
+                </td>
+              </tr>
+            ) : isError ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-16 text-center text-sm text-destructive">
+                  {(error as Error)?.message ?? "Failed to load products."}
+                </td>
+              </tr>
+            ) : filtered.slice(0, pageSize).length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-16 text-center text-sm text-muted-foreground">
-                  No products found.
+                  {search ? "No products match your search." : "No products yet. Add your first product."}
                 </td>
               </tr>
             ) : (
@@ -172,8 +213,9 @@ export default function ProductPage() {
                               <Pencil size={13} /> Edit
                             </button>
                             <button
-                              onClick={() => { toast.error(`Delete ${product.name} — confirm`); setOpenMenu(null); }}
-                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-destructive hover:bg-red-50 transition-colors"
+                              onClick={() => handleDelete(product)}
+                              disabled={deleteProduct.isPending}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-destructive hover:bg-red-50 transition-colors disabled:opacity-50"
                             >
                               <Trash2 size={13} /> Delete
                             </button>
@@ -189,10 +231,12 @@ export default function ProductPage() {
         </table>
       </div>
 
-      <p className="text-xs text-muted-foreground mt-3 px-1">
-        Showing <span className="font-semibold text-foreground">{Math.min(filtered.length, pageSize)}</span> of{" "}
-        <span className="font-semibold text-foreground">{filtered.length}</span> products
-      </p>
+      {!isLoading && !isError && (
+        <p className="text-xs text-muted-foreground mt-3 px-1">
+          Showing <span className="font-semibold text-foreground">{Math.min(filtered.length, pageSize)}</span> of{" "}
+          <span className="font-semibold text-foreground">{data?.total ?? filtered.length}</span> products
+        </p>
+      )}
 
       {/* ── Modal ── */}
       {modalOpen && (

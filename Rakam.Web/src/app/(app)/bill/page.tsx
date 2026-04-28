@@ -1,26 +1,64 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Plus, Download, Filter, Search } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Plus, Download, Filter, Search, AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { BillListTable } from "@/components/bill/BillListTable";
 import { BillFilterDrawer } from "@/components/bill/BillFilterDrawer";
 import { RecordPaymentModal } from "@/components/bill/RecordPaymentModal";
 import { ChooseBillTypeModal } from "@/components/bill/ChooseBillTypeModal";
-import { MOCK_BILLS } from "@/lib/mock/bills";
+import {
+  useSalesBills,
+  useDeleteSalesBill,
+  useDuplicateBill,
+  useRecordPayment,
+  useGeneratePdf,
+} from "@/hooks/api/use-sales-bills";
+import { usePdfJob } from "@/hooks/api/use-pdf-job";
 import { cn } from "@/lib/utils";
-import type { Bill } from "@/types";
+import type { Bill, BillStatus, BillType } from "@/types";
 import type { BillFilterValues } from "@/lib/schemas/bill.schema";
+import type { RecordPaymentFormValues } from "@/lib/schemas/bill.schema";
 import { toast } from "sonner";
 
 type TabId = "ALL" | "TAX_INVOICE" | "JOB_CHALLAN";
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: "ALL",          label: "All" },
-  { id: "TAX_INVOICE",  label: "Tax Invoice" },
-  { id: "JOB_CHALLAN",  label: "Job Challan" },
+  { id: "ALL",         label: "All" },
+  { id: "TAX_INVOICE", label: "Tax Invoice" },
+  { id: "JOB_CHALLAN", label: "Job Challan" },
 ];
 
+function TableSkeleton() {
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-border bg-white">
+      <table className="w-full min-w-[860px]">
+        <thead>
+          <tr className="border-b border-border bg-secondary/60">
+            {["Bill Date", "Bill No.", "Party Name", "Bill Type", "Total Amount", "Pending", "Status", "Due Days", "Action"].map((h) => (
+              <th key={h} className="px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {[...Array(8)].map((_, i) => (
+            <tr key={i} className="border-b border-border">
+              {[...Array(9)].map((_, j) => (
+                <td key={j} className="px-4 py-3">
+                  <div className="h-4 bg-muted animate-pulse rounded-lg w-3/4" />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function BillListPage() {
+  const router = useRouter();
+
   const [activeTab, setActiveTab]           = useState<TabId>("ALL");
   const [searchQuery, setSearchQuery]       = useState("");
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
@@ -28,46 +66,34 @@ export default function BillListPage() {
   const [chooseTypeOpen, setChooseTypeOpen] = useState(false);
   const [paymentBill, setPaymentBill]       = useState<Bill | null>(null);
   const [filterActive, setFilterActive]     = useState(false);
+  const [pdfJobId, setPdfJobId]             = useState<string | null>(null);
 
-  // Derived filtered data
-  const filteredBills = useMemo(() => {
-    let bills = [...MOCK_BILLS];
+  // Build API filter object from all UI controls
+  const apiFilters = {
+    search: searchQuery.trim() || undefined,
+    billType: activeTab !== "ALL" ? (activeTab as BillType) : undefined,
+    status: (activeFilters.status && activeFilters.status !== "ALL")
+      ? (activeFilters.status as BillStatus)
+      : undefined,
+    partyId: activeFilters.partyId || undefined,
+    fromDate: activeFilters.fromDate || undefined,
+    toDate: activeFilters.toDate || undefined,
+  };
 
-    // Tab filter
-    if (activeTab !== "ALL") {
-      bills = bills.filter((b) => b.billType === activeTab);
-    }
+  const { data, isLoading, isError, refetch } = useSalesBills(apiFilters);
+  const bills = data?.data ?? [];
 
-    // Search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      bills = bills.filter(
-        (b) =>
-          b.billNo.toLowerCase().includes(q) ||
-          b.partyName.toLowerCase().includes(q)
-      );
-    }
+  const deleteMutation    = useDeleteSalesBill();
+  const duplicateMutation = useDuplicateBill();
+  const recordPayment     = useRecordPayment();
+  const generatePdf       = useGeneratePdf();
 
-    // Status filter
-    if (activeFilters.status && activeFilters.status !== "ALL") {
-      bills = bills.filter((b) => b.status === activeFilters.status);
-    }
-
-    // Party filter
-    if (activeFilters.partyId) {
-      bills = bills.filter((b) => b.partyId === activeFilters.partyId);
-    }
-
-    // Date range
-    if (activeFilters.fromDate) {
-      bills = bills.filter((b) => b.billDate >= activeFilters.fromDate!);
-    }
-    if (activeFilters.toDate) {
-      bills = bills.filter((b) => b.billDate <= activeFilters.toDate!);
-    }
-
-    return bills;
-  }, [activeTab, searchQuery, activeFilters]);
+  // PDF polling — opens URL when job finishes
+  const { data: pdfJob } = usePdfJob(pdfJobId);
+  if (pdfJob?.status === "done" && pdfJob.url) {
+    window.open(pdfJob.url, "_blank");
+    setPdfJobId(null);
+  }
 
   function handleApplyFilters(filters: BillFilterValues) {
     setActiveFilters(filters);
@@ -84,22 +110,34 @@ export default function BillListPage() {
     setPaymentBill(bill);
   }
 
-  function handlePaymentSubmit() {
-    toast.success(`Payment recorded for ${paymentBill?.billNo}`);
-    setPaymentBill(null);
+  function handlePaymentSubmit(formData: RecordPaymentFormValues) {
+    if (!paymentBill) return;
+    recordPayment.mutate(
+      {
+        id: paymentBill.id,
+        dto: {
+          date: formData.paymentDate,
+          amount: formData.transactionAmount,
+          mode: formData.paymentMode.toUpperCase() as any,
+          note: formData.note,
+        },
+      },
+      { onSuccess: () => setPaymentBill(null) }
+    );
   }
 
-  function handleEdit(bill: Bill) {
-    toast.info(`Edit ${bill.billNo} — coming soon`);
-  }
+  const handleEdit = useCallback((bill: Bill) => {
+    router.push(`/bill/${bill.id}/edit`);
+  }, [router]);
 
-  function handleDelete(bill: Bill) {
-    toast.error(`Delete ${bill.billNo} — coming soon`);
-  }
+  const handleDelete = useCallback((bill: Bill) => {
+    if (!confirm(`Delete bill ${bill.billNo}? This cannot be undone.`)) return;
+    deleteMutation.mutate(bill.id);
+  }, [deleteMutation]);
 
-  function handleDuplicate(bill: Bill) {
-    toast.success(`Duplicated ${bill.billNo}`);
-  }
+  const handleDuplicate = useCallback((bill: Bill) => {
+    duplicateMutation.mutate(bill.id);
+  }, [duplicateMutation]);
 
   function handleCreditNote(bill: Bill) {
     toast.info(`Credit Note for ${bill.billNo} — coming soon`);
@@ -114,7 +152,12 @@ export default function BillListPage() {
   }
 
   function handleDownload(bill: Bill) {
-    toast.info(`Downloading ${bill.billNo}…`);
+    generatePdf.mutate(bill.id, {
+      onSuccess: ({ jobId }) => {
+        setPdfJobId(jobId);
+        toast.info("Generating PDF, please wait…");
+      },
+    });
   }
 
   return (
@@ -132,7 +175,6 @@ export default function BillListPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Export */}
           <button
             onClick={() => toast.info("Exporting to Excel…")}
             className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold border border-border text-foreground bg-white hover:bg-secondary transition-colors"
@@ -141,7 +183,6 @@ export default function BillListPage() {
             Export
           </button>
 
-          {/* Add Bill */}
           <button
             onClick={() => setChooseTypeOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors shadow-sm"
@@ -154,7 +195,6 @@ export default function BillListPage() {
 
       {/* ── Tabs + Search + Filter row ── */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        {/* Tabs */}
         <div className="flex items-center bg-white rounded-xl border border-border p-1 gap-1">
           {TABS.map((tab) => (
             <button
@@ -172,7 +212,6 @@ export default function BillListPage() {
           ))}
         </div>
 
-        {/* Search */}
         <div className="flex-1 min-w-[200px] max-w-sm relative">
           <Search
             size={14}
@@ -191,7 +230,6 @@ export default function BillListPage() {
           />
         </div>
 
-        {/* Filter */}
         <button
           onClick={() => setFilterDrawerOpen(true)}
           className={cn(
@@ -209,18 +247,33 @@ export default function BillListPage() {
         </button>
       </div>
 
-      {/* ── Table ── */}
-      <BillListTable
-        data={filteredBills}
-        onRecordPayment={handleRecordPayment}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onDuplicate={handleDuplicate}
-        onCreditNote={handleCreditNote}
-        onCreateEway={handleCreateEway}
-        onPrint={handlePrint}
-        onDownload={handleDownload}
-      />
+      {/* ── Content ── */}
+      {isLoading ? (
+        <TableSkeleton />
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+          <AlertCircle size={32} strokeWidth={1.5} className="text-destructive/60" />
+          <p className="text-sm font-medium">Failed to load bills.</p>
+          <button
+            onClick={() => refetch()}
+            className="text-xs font-semibold text-brand-700 hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      ) : (
+        <BillListTable
+          data={bills}
+          onRecordPayment={handleRecordPayment}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onDuplicate={handleDuplicate}
+          onCreditNote={handleCreditNote}
+          onCreateEway={handleCreateEway}
+          onPrint={handlePrint}
+          onDownload={handleDownload}
+        />
+      )}
 
       {/* ── Filter Drawer ── */}
       <BillFilterDrawer

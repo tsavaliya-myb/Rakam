@@ -12,7 +12,7 @@ import type { Product } from "@/types";
 interface ProductModalProps {
   product?: Product;
   onClose: () => void;
-  onSubmit: (data: ProductFormValues) => void;
+  onSubmit: (data: ProductFormValues) => void | Promise<void>;
 }
 
 const inp = cn(

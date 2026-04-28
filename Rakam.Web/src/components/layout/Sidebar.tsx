@@ -50,12 +50,12 @@ export function Sidebar() {
           <button className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-brand-50 border border-brand-100 hover:bg-brand-100 transition-colors text-left group">
             <div className="w-7 h-7 rounded-lg bg-brand-100 flex items-center justify-center flex-shrink-0">
               <span className="font-bold text-xs text-brand-900">
-                {activeFirmName.charAt(0)}
+                {activeFirmName?.charAt(0) ?? "…"}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-gray-800 truncate">
-                {activeFirmName}
+                {activeFirmName ?? "Loading…"}
               </p>
               <p className="text-[10px] text-muted-foreground">
                 FY {financialYear}

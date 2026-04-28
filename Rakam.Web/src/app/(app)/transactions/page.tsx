@@ -55,7 +55,7 @@ export default function TransactionsPage() {
   }
 
   function handleAdd(data: AddPaymentFormValues) {
-    const newTxn: Transaction = {
+    const newTxn = {
       id: `txn${Date.now()}`,
       date: data.paymentDate,
       refNumber: `TXN-${String(transactions.length + 1).padStart(3, "0")}`,
@@ -69,7 +69,7 @@ export default function TransactionsPage() {
       mode: data.paymentMode,
       note: data.notes,
     };
-    setTransactions((prev) => [newTxn, ...prev]);
+    setTransactions((prev) => [newTxn as Transaction, ...prev]);
     setAddModalOpen(false);
     toast.success("Payment recorded successfully");
   }

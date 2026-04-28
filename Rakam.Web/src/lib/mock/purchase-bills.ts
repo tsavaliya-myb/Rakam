@@ -1,6 +1,5 @@
-import type { PurchaseBill } from "@/types";
-
-export const MOCK_PURCHASE_BILLS: PurchaseBill[] = [
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MOCK_PURCHASE_BILLS: any[] = [
   {
     id: "pb1",
     billNo: "RK-2026-001",

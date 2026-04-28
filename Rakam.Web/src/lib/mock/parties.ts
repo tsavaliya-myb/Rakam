@@ -1,6 +1,5 @@
-import type { Party } from "@/types";
-
-export const MOCK_PARTIES: Party[] = [
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MOCK_PARTIES: any[] = [
   { id: "p1", name: "Mehta Co.",          ownerName: "Rakesh Mehta",    gstNo: "27AABCM1234A1Z5", panCard: "AABCM1234A", address: "123 Ring Road, Andheri",       state: "Maharashtra", city: "Mumbai",     pincode: "400053", contactNumber: "9876543210", discount: 5,  dueDays: 15 },
   { id: "p2", name: "Patel Enterprises",  ownerName: "Suresh Patel",    gstNo: "24AADCP5678B1Z3", panCard: "AADCP5678B", address: "45 Industrial Area, Naroda",   state: "Gujarat",     city: "Ahmedabad",  pincode: "382330", contactNumber: "9988776655", discount: 0,  dueDays: 30 },
   { id: "p3", name: "Sharma Traders",     ownerName: "Vijay Sharma",    gstNo: "",                panCard: "AABCS9012C", address: "78 MG Road, Sector 14",        state: "Rajasthan",   city: "Jaipur",     pincode: "302001", contactNumber: "9112233445", discount: 2,  dueDays: 7  },

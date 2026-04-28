@@ -1,6 +1,5 @@
-import type { Transaction } from "@/types";
-
-export const MOCK_TRANSACTIONS: Transaction[] = [
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MOCK_TRANSACTIONS: any[] = [
   {
     id: "txn1",
     date: "2026-04-01",

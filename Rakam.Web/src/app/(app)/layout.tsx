@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
+import { FirmBootstrapper } from "@/components/layout/FirmBootstrapper";
 
 export default function AppLayout({
   children,
@@ -8,6 +9,7 @@ export default function AppLayout({
 }) {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      <FirmBootstrapper />
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <TopBar />

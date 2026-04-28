@@ -1,7 +1,5 @@
-import type { Bill } from "@/types";
-
-// Mock data — replace with real API calls via TanStack Query
-export const MOCK_BILLS: Bill[] = [
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MOCK_BILLS: any[] = [
   {
     id: "1",
     billNo: "INV-001",

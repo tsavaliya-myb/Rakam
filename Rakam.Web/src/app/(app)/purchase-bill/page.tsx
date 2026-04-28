@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Plus, Download, Filter, Search } from "lucide-react";
+import { Plus, Download, Filter, Search, Loader2 } from "lucide-react";
 import { PurchaseBillTable } from "@/components/purchase-bill/PurchaseBillTable";
 import { PurchaseBillFilterDrawer } from "@/components/purchase-bill/PurchaseBillFilterDrawer";
 import { PurchasePaymentModal } from "@/components/purchase-bill/PurchasePaymentModal";
-import { MOCK_PURCHASE_BILLS } from "@/lib/mock/purchase-bills";
 import { cn } from "@/lib/utils";
-import type { PurchaseBill } from "@/types";
-import type { PurchaseBillFilterValues } from "@/lib/schemas/purchase-bill.schema";
+import type { PurchaseBill, PaymentMode } from "@/types";
+import type {
+  PurchaseBillFilterValues,
+  PurchasePaymentFormValues,
+} from "@/lib/schemas/purchase-bill.schema";
 import { toast } from "sonner";
 import Link from "next/link";
+import { usePurchaseBills, useDeletePurchaseBill, useRecordPurchasePayment } from "@/hooks/api/use-purchase-bills";
 
 type TabId = "ALL" | "WITH_TAX" | "WITHOUT_TAX";
 
@@ -28,13 +31,25 @@ export default function PurchaseBillListPage() {
   const [paymentBill, setPaymentBill]           = useState<PurchaseBill | null>(null);
   const [filterActive, setFilterActive]         = useState(false);
 
+  const apiFilters = {
+    status: activeFilters.status && activeFilters.status !== "ALL"
+      ? (activeFilters.status as "PAID" | "UNPAID" | "PARTIAL")
+      : undefined,
+    partyId: activeFilters.partyId || undefined,
+  };
+
+  const { data, isLoading, isError } = usePurchaseBills(apiFilters);
+  const deleteBill    = useDeletePurchaseBill();
+  const recordPayment = useRecordPurchasePayment();
+
+  const allBills = data?.data ?? [];
+
   const filteredBills = useMemo(() => {
-    let bills = [...MOCK_PURCHASE_BILLS];
+    let bills = [...allBills];
 
     if (activeTab !== "ALL") {
       bills = bills.filter((b) => b.billType === activeTab);
     }
-
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       bills = bills.filter(
@@ -42,13 +57,6 @@ export default function PurchaseBillListPage() {
           b.billNo.toLowerCase().includes(q) ||
           b.partyName.toLowerCase().includes(q)
       );
-    }
-
-    if (activeFilters.status && activeFilters.status !== "ALL") {
-      bills = bills.filter((b) => b.status === activeFilters.status);
-    }
-    if (activeFilters.partyId) {
-      bills = bills.filter((b) => b.partyId === activeFilters.partyId);
     }
     if (activeFilters.fromDate) {
       bills = bills.filter((b) => b.billDate >= activeFilters.fromDate!);
@@ -58,7 +66,7 @@ export default function PurchaseBillListPage() {
     }
 
     return bills;
-  }, [activeTab, searchQuery, activeFilters]);
+  }, [allBills, activeTab, searchQuery, activeFilters]);
 
   function handleApplyFilters(filters: PurchaseBillFilterValues) {
     setActiveFilters(filters);
@@ -69,6 +77,20 @@ export default function PurchaseBillListPage() {
       !!filters.toDate ||
       filters.billType !== "ALL"
     );
+  }
+
+  async function handlePaymentSubmit(formData: PurchasePaymentFormValues) {
+    if (!paymentBill) return;
+    await recordPayment.mutateAsync({
+      id: paymentBill.id,
+      dto: {
+        date: formData.paymentDate,
+        amount: formData.transactionAmount,
+        mode: formData.paymentMode.toUpperCase() as PaymentMode,
+        note: formData.note || undefined,
+      },
+    });
+    setPaymentBill(null);
   }
 
   return (
@@ -160,15 +182,25 @@ export default function PurchaseBillListPage() {
       </div>
 
       {/* ── Table ── */}
-      <PurchaseBillTable
-        data={filteredBills}
-        onRecordPayment={(bill) => setPaymentBill(bill)}
-        onView={(bill) => toast.info(`Viewing ${bill.billNo}`)}
-        onEdit={(bill) => toast.info(`Edit ${bill.billNo} — coming soon`)}
-        onDelete={(bill) => toast.error(`Delete ${bill.billNo} — coming soon`)}
-        onPrint={(bill) => toast.info(`Printing ${bill.billNo}…`)}
-        onDownload={(bill) => toast.info(`Downloading ${bill.billNo}…`)}
-      />
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={28} className="animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <div className="bg-white rounded-2xl border border-border flex items-center justify-center py-20">
+          <p className="text-sm text-destructive">Failed to load purchase bills.</p>
+        </div>
+      ) : (
+        <PurchaseBillTable
+          data={filteredBills}
+          onRecordPayment={(bill) => setPaymentBill(bill)}
+          onView={(bill) => toast.info(`Viewing ${bill.billNo}`)}
+          onEdit={(bill) => toast.info(`Edit ${bill.billNo} — coming soon`)}
+          onDelete={(bill) => deleteBill.mutate(bill.id)}
+          onPrint={(bill) => toast.info(`Printing ${bill.billNo}…`)}
+          onDownload={(bill) => toast.info(`Downloading ${bill.billNo}…`)}
+        />
+      )}
 
       {/* ── Filter Drawer ── */}
       <PurchaseBillFilterDrawer
@@ -183,10 +215,7 @@ export default function PurchaseBillListPage() {
         <PurchasePaymentModal
           bill={paymentBill}
           onClose={() => setPaymentBill(null)}
-          onSubmit={() => {
-            toast.success(`Payment recorded for ${paymentBill.billNo}`);
-            setPaymentBill(null);
-          }}
+          onSubmit={handlePaymentSubmit}
         />
       )}
     </div>

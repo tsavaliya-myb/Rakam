@@ -2,43 +2,46 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Building2, Lock } from "lucide-react";
+import { Plus, Search, Building2, Lock, Loader2 } from "lucide-react";
 import { FirmCard } from "@/components/firm/FirmCard";
-import { MOCK_FIRMS, type FirmDetails } from "@/lib/mock/firms";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-const PLAN_LIMIT   = 1;
-const ACTIVE_FIRMS = 1;
+import { useFirms, useDeleteFirm, useTogglePdfOptions } from "@/hooks/api/use-firms";
+import { useSubscriptionStore } from "@/store/useSubscriptionStore";
+import type { Firm, TogglePdfOptionsDto } from "@/types";
 
 export default function ManageFirmPage() {
   const router = useRouter();
-  const [firms, setFirms]     = useState<FirmDetails[]>(MOCK_FIRMS);
-  const [search, setSearch]   = useState("");
+  const [search, setSearch]       = useState("");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+
+  const { data: firms = [], isLoading, isError } = useFirms();
+  const deleteFirm = useDeleteFirm();
+  const togglePdfOptions = useTogglePdfOptions();
+  const subscription = useSubscriptionStore((s) => s.subscription);
+
+  const planLimit   = subscription?.firmLimit ?? 1;
+  const activeFirms = firms.filter((f) => f.isDefault !== undefined).length;
 
   const filteredFirms = firms.filter((f) =>
     f.name.toLowerCase().includes(search.toLowerCase()) ||
     (f.gstNo ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
-  function handleToggle(firmId: string, field: "watermark" | "logo" | "signature") {
-    setFirms((prev) =>
-      prev.map((f) => (f.id === firmId ? { ...f, [field]: !f[field] } : f))
-    );
+  function handleToggle(firmId: string, dto: TogglePdfOptionsDto) {
+    togglePdfOptions.mutate({ id: firmId, dto });
   }
 
-  function handleDelete(firm: FirmDetails) {
+  function handleDelete(firm: Firm) {
     if (firm.isDefault) {
       toast.error("Cannot delete the default firm");
       return;
     }
-    setFirms((prev) => prev.filter((f) => f.id !== firm.id));
-    toast.success(`"${firm.name}" deleted`);
+    deleteFirm.mutate(firm.id);
   }
 
   function handleAddFirm() {
-    if (firms.length >= PLAN_LIMIT) {
+    if (firms.length >= planLimit) {
       setUpgradeOpen(true);
     } else {
       toast.info("Add firm — coming soon");
@@ -68,8 +71,8 @@ export default function ManageFirmPage() {
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
           { label: "Total Firms",  value: firms.length },
-          { label: "Active Firms", value: ACTIVE_FIRMS },
-          { label: "Plan Limit",   value: `${firms.length}/${PLAN_LIMIT}` },
+          { label: "Active Firms", value: activeFirms },
+          { label: "Plan Limit",   value: `${firms.length}/${planLimit}` },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-2xl border border-border p-4 text-center">
             <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">
@@ -100,12 +103,22 @@ export default function ManageFirmPage() {
       </div>
 
       {/* ── Firm cards grid ── */}
-      {filteredFirms.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={28} className="animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <div className="bg-white rounded-2xl border border-border flex flex-col items-center justify-center py-20 gap-3">
+          <p className="text-sm text-destructive">Failed to load firms.</p>
+        </div>
+      ) : filteredFirms.length === 0 ? (
         <div className="bg-white rounded-2xl border border-border flex flex-col items-center justify-center py-20 gap-4">
           <div className="w-14 h-14 rounded-2xl bg-brand-50 flex items-center justify-center">
             <Building2 size={24} strokeWidth={1.5} className="text-brand-400" />
           </div>
-          <p className="text-sm text-muted-foreground">No firms found.</p>
+          <p className="text-sm text-muted-foreground">
+            {search ? "No firms match your search." : "No firms found."}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -133,7 +146,7 @@ export default function ManageFirmPage() {
             </div>
             <h3 className="text-base font-bold text-foreground mb-2">Plan Limit Reached</h3>
             <p className="text-sm text-muted-foreground mb-5">
-              Your current plan allows {PLAN_LIMIT} firm{PLAN_LIMIT > 1 ? "s" : ""}.
+              Your current plan allows {planLimit} firm{planLimit > 1 ? "s" : ""}.
               Upgrade to add more firms.
             </p>
             <div className="flex gap-3">

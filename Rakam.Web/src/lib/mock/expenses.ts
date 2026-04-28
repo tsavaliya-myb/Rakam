@@ -1,5 +1,3 @@
-import type { Expense } from "@/types";
-
 export const MOCK_EXPENSE_CATEGORIES = [
   { id: "ec1", name: "Other",          example: "Tea" },
   { id: "ec2", name: "Service",        example: "Machine Repairing" },
@@ -25,7 +23,8 @@ export const MOCK_EXPENSE_ITEMS = [
   { id: "ei4", name: "Tea & Snacks" },
 ];
 
-export const MOCK_EXPENSES: Expense[] = [
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MOCK_EXPENSES: any[] = [
   {
     id: "exp1",
     date: "2026-04-02",

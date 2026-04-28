@@ -2,13 +2,13 @@
 
 import { Pencil, Trash2, MapPin, Shield, ShieldOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { FirmDetails } from "@/lib/mock/firms";
+import type { Firm, TogglePdfOptionsDto } from "@/types";
 
 interface Props {
-  firm: FirmDetails;
-  onEdit: (firm: FirmDetails) => void;
-  onDelete: (firm: FirmDetails) => void;
-  onToggle: (firmId: string, field: "watermark" | "logo" | "signature") => void;
+  firm: Firm;
+  onEdit: (firm: Firm) => void;
+  onDelete: (firm: Firm) => void;
+  onToggle: (firmId: string, dto: TogglePdfOptionsDto) => void;
 }
 
 function Toggle({
@@ -49,6 +49,8 @@ function Toggle({
 }
 
 export function FirmCard({ firm, onEdit, onDelete, onToggle }: Props) {
+  const pdfOpts = firm.pdfOptions;
+
   return (
     <div className={cn(
       "bg-white rounded-2xl border border-border overflow-hidden hover:shadow-md transition-shadow",
@@ -126,19 +128,19 @@ export function FirmCard({ firm, onEdit, onDelete, onToggle }: Props) {
           PDF Display Options
         </p>
         <Toggle
-          label="Watermark"
-          checked={firm.watermark}
-          onChange={() => onToggle(firm.id, "watermark")}
-        />
-        <Toggle
           label="Logo"
-          checked={firm.logo}
-          onChange={() => onToggle(firm.id, "logo")}
+          checked={pdfOpts?.showLogo ?? false}
+          onChange={() => onToggle(firm.id, { showLogo: !(pdfOpts?.showLogo ?? false) })}
         />
         <Toggle
           label="Signature"
-          checked={firm.signature}
-          onChange={() => onToggle(firm.id, "signature")}
+          checked={pdfOpts?.showSign ?? false}
+          onChange={() => onToggle(firm.id, { showSign: !(pdfOpts?.showSign ?? false) })}
+        />
+        <Toggle
+          label="Bank Details"
+          checked={pdfOpts?.showBank ?? false}
+          onChange={() => onToggle(firm.id, { showBank: !(pdfOpts?.showBank ?? false) })}
         />
       </div>
     </div>

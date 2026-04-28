@@ -14,7 +14,7 @@ import type { FirmDetails } from "@/lib/mock/firms";
 
 interface Props {
   firm: FirmDetails;
-  onSubmit: (data: EditFirmFormValues) => void;
+  onSubmit: (data: EditFirmFormValues) => void | Promise<void>;
   onCancel: () => void;
 }
 
