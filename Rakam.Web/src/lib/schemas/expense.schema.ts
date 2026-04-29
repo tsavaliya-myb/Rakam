@@ -3,8 +3,8 @@ import { z } from "zod";
 export const addExpenseSchema = z.object({
   mode: z.enum(["AMOUNT", "ITEM"]),
   date: z.string().min(1, "Date is required"),
-  category: z.string().min(1, "Category is required"),
-  supplierName: z.string().optional(),
+  categoryId: z.string().min(1, "Category is required"),
+  supplierId: z.string().optional(),
   amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
   note: z.string().max(200).optional(),
   attachmentUrl: z.string().optional(),

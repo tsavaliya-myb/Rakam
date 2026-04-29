@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Building2, Lock, Loader2 } from "lucide-react";
+import { Plus, Search, Building2, Lock } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { FirmCard } from "@/components/firm/FirmCard";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -15,7 +18,7 @@ export default function ManageFirmPage() {
   const [search, setSearch]       = useState("");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
-  const { data: firms = [], isLoading, isError } = useFirms();
+  const { data: firms = [], isLoading, isError, refetch } = useFirms();
   const deleteFirm = useDeleteFirm();
   const togglePdfOptions = useTogglePdfOptions();
   const subscription = useSubscriptionStore((s) => s.subscription);
@@ -104,22 +107,14 @@ export default function ManageFirmPage() {
 
       {/* ── Firm cards grid ── */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={28} className="animate-spin text-muted-foreground" />
-        </div>
+        <TableSkeleton cols={3} rows={4} />
       ) : isError ? (
-        <div className="bg-white rounded-2xl border border-border flex flex-col items-center justify-center py-20 gap-3">
-          <p className="text-sm text-destructive">Failed to load firms.</p>
-        </div>
+        <ErrorState message="Failed to load firms." onRetry={() => refetch()} />
       ) : filteredFirms.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-border flex flex-col items-center justify-center py-20 gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-brand-50 flex items-center justify-center">
-            <Building2 size={24} strokeWidth={1.5} className="text-brand-400" />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {search ? "No firms match your search." : "No firms found."}
-          </p>
-        </div>
+        <EmptyState
+          icon={<Building2 size={24} strokeWidth={1.5} />}
+          label={search ? "No firms match your search." : "No firms found."}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {filteredFirms.map((firm) => (

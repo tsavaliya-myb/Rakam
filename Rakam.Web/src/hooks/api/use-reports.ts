@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import { QK } from "@/lib/query-keys";
 import { reportsService } from "@/services/reports";
 import { useAppStore } from "@/store/useAppStore";
-import type { ReportFiltersDto, ReportType } from "@/types";
+import type { ReportFiltersDto } from "@/types";
 
-export function useReport(type: ReportType, filters?: ReportFiltersDto) {
+export function useReport(type: string, filters?: ReportFiltersDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.reports(firmId!, type, filters),
@@ -24,7 +24,7 @@ export function useExportReport() {
       format,
       filters,
     }: {
-      type: ReportType;
+      type: string;
       format: "pdf" | "excel";
       filters?: ReportFiltersDto;
     }) => reportsService.exportReport(firmId!, type, format, filters),

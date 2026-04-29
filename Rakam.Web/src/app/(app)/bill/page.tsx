@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { Plus, Download, Filter, Search, AlertCircle } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import { useRouter } from "next/navigation";
 import { BillListTable } from "@/components/bill/BillListTable";
 import { BillFilterDrawer } from "@/components/bill/BillFilterDrawer";
@@ -29,32 +31,6 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "JOB_CHALLAN", label: "Job Challan" },
 ];
 
-function TableSkeleton() {
-  return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-white">
-      <table className="w-full min-w-[860px]">
-        <thead>
-          <tr className="border-b border-border bg-secondary/60">
-            {["Bill Date", "Bill No.", "Party Name", "Bill Type", "Total Amount", "Pending", "Status", "Due Days", "Action"].map((h) => (
-              <th key={h} className="px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {[...Array(8)].map((_, i) => (
-            <tr key={i} className="border-b border-border">
-              {[...Array(9)].map((_, j) => (
-                <td key={j} className="px-4 py-3">
-                  <div className="h-4 bg-muted animate-pulse rounded-lg w-3/4" />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 export default function BillListPage() {
   const router = useRouter();
@@ -251,16 +227,7 @@ export default function BillListPage() {
       {isLoading ? (
         <TableSkeleton />
       ) : isError ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-          <AlertCircle size={32} strokeWidth={1.5} className="text-destructive/60" />
-          <p className="text-sm font-medium">Failed to load bills.</p>
-          <button
-            onClick={() => refetch()}
-            className="text-xs font-semibold text-brand-700 hover:underline"
-          >
-            Try again
-          </button>
-        </div>
+        <ErrorState message="Failed to load bills." onRetry={() => refetch()} />
       ) : (
         <BillListTable
           data={bills}

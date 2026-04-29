@@ -26,8 +26,8 @@ type SectionId =
   | "pdf-template"
   | "inventory"
   | "other"
-  | "subscription";
-  // | "eway-gsp";
+  | "subscription"
+  | "eway-gsp";
 
 interface NavSection {
   id: SectionId;
@@ -47,7 +47,7 @@ const NAV_SECTIONS: NavSection[] = [
   { id: "inventory",     label: "Inventory Management",   icon: Package,       group: "More Settings" },
   { id: "other",         label: "Other Settings",         icon: Settings2,     group: "More Settings" },
   { id: "subscription",  label: "My Subscriptions",       icon: CreditCard,    group: "More Settings" },
-  // { id: "eway-gsp",      label: "E-way Bill GSP",         icon: Zap,           group: "More Settings" },
+  { id: "eway-gsp",      label: "E-way Bill GSP",         icon: Zap,           group: "More Settings" },
 ];
 
 const SECTION_TITLES: Record<SectionId, { title: string; description: string }> = {
@@ -61,7 +61,7 @@ const SECTION_TITLES: Record<SectionId, { title: string; description: string }> 
   "inventory":     { title: "Inventory Management",    description: "Enable stock tracking and configure inventory rules." },
   "other":         { title: "Other Settings",          description: "Shortcuts, decimals, party-wise rates, and shipment address." },
   "subscription":  { title: "My Subscriptions",        description: "View your current plan and upgrade options." },
-  // "eway-gsp":      { title: "E-way Bill GSP",          description: "Register your GSP credentials for E-way Bill generation." },
+  "eway-gsp":      { title: "E-way Bill GSP",          description: "Register your GSP credentials for E-way Bill generation." },
 };
 
 function renderSection(id: SectionId) {
@@ -76,7 +76,7 @@ function renderSection(id: SectionId) {
     case "inventory":     return <InventorySettings />;
     case "other":         return <OtherSettings />;
     case "subscription":  return <SubscriptionSettings />;
-    // case "eway-gsp":      return <EwayGSPSettings />;
+    case "eway-gsp":      return <EwayGSPSettings />;
   }
 }
 

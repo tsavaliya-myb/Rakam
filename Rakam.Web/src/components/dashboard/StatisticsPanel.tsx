@@ -1,8 +1,9 @@
 "use client";
 
-import { FileText, ShoppingCart, Receipt, TrendingUp, AlertCircle } from "lucide-react";
+import { FileText, ShoppingCart, Receipt, TrendingUp } from "lucide-react";
 import { KpiTile } from "./KpiTile";
 import { SalesBarChart, PurchaseBarChart, GstDonutChart } from "./Charts";
+import { ErrorState } from "@/components/ui/error-state";
 import type { DashboardStats } from "@/types";
 
 function fmtINR(v: number): string {
@@ -27,16 +28,19 @@ interface StatisticsPanelProps {
 export function StatisticsPanel({ stats, isLoading, isError, financialYear }: StatisticsPanelProps) {
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-        <AlertCircle size={32} strokeWidth={1.5} className="text-destructive/60" />
-        <p className="text-sm font-medium">Failed to load statistics. Please try again.</p>
-      </div>
+      <ErrorState
+        message="Failed to load statistics. Please try again."
+        className="py-20"
+      />
     );
   }
 
   const fyLabel = `01/04/${financialYear.slice(0, 4)} ~ 31/03/${financialYear.slice(5)}`;
   const salesData = stats?.salesPartyData ?? [];
-  const purchaseData = stats?.purchasePartyData ?? [];
+  const purchaseData = (stats?.purchasePartyData ?? []).map((d) => ({
+    ...d,
+    paid: d.paid ?? 0,
+  }));
 
   return (
     <div className="space-y-5">

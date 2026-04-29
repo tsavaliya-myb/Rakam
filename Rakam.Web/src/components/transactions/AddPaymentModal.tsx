@@ -2,14 +2,14 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { X, ArrowLeftRight } from "lucide-react";
+import { X, ArrowLeftRight, Loader2 } from "lucide-react";
 import { addPaymentSchema, type AddPaymentFormValues } from "@/lib/schemas/transaction.schema";
-import { MOCK_PARTIES } from "@/lib/mock/parties";
 import { cn } from "@/lib/utils";
+import { usePartiesDropdown } from "@/hooks/api/use-parties";
+import { useCreateTransaction } from "@/hooks/api/use-transactions";
 
 interface Props {
   onClose: () => void;
-  onSubmit: (data: AddPaymentFormValues) => void;
 }
 
 const today = new Date().toISOString().split("T")[0];
@@ -33,7 +33,10 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-[11px] text-red-500 mt-0.5">{message}</p>;
 }
 
-export function AddPaymentModal({ onClose, onSubmit }: Props) {
+export function AddPaymentModal({ onClose }: Props) {
+  const { data: parties = [], isLoading: partiesLoading } = usePartiesDropdown();
+  const createTransaction = useCreateTransaction();
+
   const {
     register,
     handleSubmit,
@@ -52,6 +55,20 @@ export function AddPaymentModal({ onClose, onSubmit }: Props) {
   });
 
   const notesVal = watch("notes") ?? "";
+
+  async function onSubmit(data: AddPaymentFormValues) {
+    await createTransaction.mutateAsync({
+      date: data.paymentDate,
+      refNumber: `TXN-${Date.now()}`,
+      partyId: data.partyId || undefined,
+      amount: data.paymentAmount,
+      transactionType: data.transactionFor === "SALES" ? "CREDIT" : "DEBIT",
+      transactionFor: data.transactionFor === "SALES" ? "Sale/Manual" : "Purchase/Manual",
+      mode: data.paymentMode,
+      note: data.notes || undefined,
+    });
+    onClose();
+  }
 
   return (
     <div
@@ -111,12 +128,19 @@ export function AddPaymentModal({ onClose, onSubmit }: Props) {
           {/* Select Party */}
           <div>
             <Label>Select Party</Label>
-            <select {...register("partyId")} className={inputCls}>
-              <option value="">Select party</option>
-              {MOCK_PARTIES.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+            {partiesLoading ? (
+              <div className={cn(inputCls, "flex items-center gap-2 text-muted-foreground")}>
+                <Loader2 size={13} className="animate-spin" />
+                <span className="text-xs">Loading parties…</span>
+              </div>
+            ) : (
+              <select {...register("partyId")} className={inputCls}>
+                <option value="">Select party</option>
+                {parties.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Payment Mode */}
@@ -181,9 +205,10 @@ export function AddPaymentModal({ onClose, onSubmit }: Props) {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-brand-900 text-white hover:bg-brand-800 disabled:opacity-60 transition-colors"
+              disabled={isSubmitting || createTransaction.isPending}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold bg-brand-900 text-white hover:bg-brand-800 disabled:opacity-60 transition-colors"
             >
+              {(isSubmitting || createTransaction.isPending) && <Loader2 size={13} className="animate-spin" />}
               Add Payment
             </button>
           </div>

@@ -1,14 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Save } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 import {
   salesBillSettingsSchema,
   type SalesBillSettingsValues,
 } from "@/lib/schemas/settings.schema";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { useSettings, useUpdateSettings } from "@/hooks/api/use-settings";
 
 const inp = cn(
   "w-full px-3 py-2 text-sm rounded-xl border border-border bg-secondary text-foreground outline-none",
@@ -37,7 +38,10 @@ function ToggleRow({
 }
 
 export function SalesBillSettings() {
-  const { register, control, handleSubmit, formState: { isSubmitting } } =
+  const { data: settings, isLoading } = useSettings();
+  const updateSettings = useUpdateSettings();
+
+  const { register, control, handleSubmit, reset, formState: { isSubmitting } } =
     useForm<SalesBillSettingsValues>({
       resolver: zodResolver(salesBillSettingsSchema),
       defaultValues: {
@@ -59,19 +63,46 @@ export function SalesBillSettings() {
       },
     });
 
+  useEffect(() => {
+    if (settings) {
+      reset((prev) => ({
+        ...prev,
+        billPrefix: settings.invoicePrefix ?? "",
+        termsAndConditions: settings.termsAndConditions ?? "",
+      }));
+    }
+  }, [settings, reset]);
+
   function onSubmit(data: SalesBillSettingsValues) {
-    toast.success("Sales bill settings saved");
+    updateSettings.mutate({
+      section: "sales-bill",
+      dto: {
+        invoicePrefix: data.billPrefix,
+        termsAndConditions: data.termsAndConditions,
+        displayDueDetails: data.displayDueDetails,
+        displayGstInJobChallan: data.displayGstInJobChallan,
+        defaultPrintType: data.defaultPrintType,
+        displayChallanOption: data.displayChallanOption,
+        billNoLabel: data.billNoLabel,
+        displayAddLossProduct: data.displayAddLossProduct,
+        displayDeliveryToSalesBill: data.displayDeliveryToSalesBill,
+        displayWithHoldingTax: data.displayWithHoldingTax,
+        enableDirectPayment: data.enableDirectPayment,
+        discountScope: data.discountScope,
+        titleJobChallan: data.titleJobChallan,
+        titleTaxInvoice: data.titleTaxInvoice,
+        customHeading: data.customHeading,
+      },
+    });
   }
 
-  const toggleFields: { name: keyof SalesBillSettingsValues; label: string; desc?: string }[] = [
-    { name: "displayDueDetails",          label: "Display Due Details in Invoice",         desc: "Shows Due Days & Date on PDF" },
-    { name: "displayGstInJobChallan",     label: "Display GST No. in Job Challan",          desc: "Shows GST number on Job Challan PDF" },
-    { name: "displayChallanOption",       label: "Display Challan Option in Sales Bill",    desc: "Shows challan section in bill form" },
-    { name: "displayAddLossProduct",      label: "Display Add Loss Product Option",         desc: "Shows loss product option in bill" },
-    { name: "displayDeliveryToSalesBill", label: "Import Delivery Challan to Sales Bill",   desc: "Allows creating bill from Delivery Challan" },
-    { name: "displayWithHoldingTax",      label: "Display With Holding Tax Option",         desc: "Shows TDS/TCS option in Sales Bill" },
-    { name: "enableDirectPayment",        label: "Enable Direct Payment",                   desc: "Direct payment entry from Sales Bill" },
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -171,10 +202,10 @@ export function SalesBillSettings() {
         </div>
       </div>
 
-      <button type="submit" disabled={isSubmitting}
+      <button type="submit" disabled={isSubmitting || updateSettings.isPending}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors disabled:opacity-60">
-        <Save size={14} />
-        {isSubmitting ? "Saving…" : "Save"}
+        {updateSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        {updateSettings.isPending ? "Saving…" : "Save"}
       </button>
     </form>
   );

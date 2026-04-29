@@ -5,14 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UNIT_OPTIONS } from "@/config/constants";
 import type { PurchaseBillFormValues } from "@/lib/schemas/purchase-bill.schema";
-
-const MOCK_PRODUCTS = [
-  { id: "pr1", name: "Raw Cotton",       itemCode: "RC-001",  hsnCode: "5201", rate: 180,  unit: "KG"  },
-  { id: "pr2", name: "Polyester Yarn",   itemCode: "PY-002",  hsnCode: "5402", rate: 320,  unit: "KG"  },
-  { id: "pr3", name: "Dye Chemical",     itemCode: "DC-003",  hsnCode: "3204", rate: 750,  unit: "KG"  },
-  { id: "pr4", name: "Packing Material", itemCode: "PM-004",  hsnCode: "3923", rate: 15,   unit: "Pcs" },
-  { id: "pr5", name: "Greige Fabric",    itemCode: "GF-005",  hsnCode: "5208", rate: 95,   unit: "Mtr" },
-];
+import { useProductsDropdown } from "@/hooks/api/use-products";
 
 interface PurchaseLineItemsTableProps {
   applyGst: boolean;
@@ -25,6 +18,7 @@ export function PurchaseLineItemsTable({ applyGst }: PurchaseLineItemsTableProps
   const { fields, append, remove } = useFieldArray<PurchaseBillFormValues>({
     name: "lineItems",
   });
+  const { data: products = [] } = useProductsDropdown();
 
   function addRow() {
     append({
@@ -41,13 +35,13 @@ export function PurchaseLineItemsTable({ applyGst }: PurchaseLineItemsTableProps
   }
 
   function handleProductSelect(index: number, productId: string) {
-    const p = MOCK_PRODUCTS.find((x) => x.id === productId);
+    const p = products.find((x) => x.id === productId);
     if (!p) return;
     setValue(`lineItems.${index}.productId`, p.id);
     setValue(`lineItems.${index}.productName`, p.name);
     setValue(`lineItems.${index}.itemCode`, p.itemCode);
     setValue(`lineItems.${index}.hsnCode`, p.hsnCode);
-    setValue(`lineItems.${index}.rate`, p.rate);
+    setValue(`lineItems.${index}.rate`, p.rate ?? 0);
     setValue(`lineItems.${index}.unit`, p.unit);
     recalc(index);
   }
@@ -91,7 +85,7 @@ export function PurchaseLineItemsTable({ applyGst }: PurchaseLineItemsTableProps
                 <td className="px-3 py-2 min-w-[160px]">
                   <select className={cell} onChange={(e) => handleProductSelect(index, e.target.value)} defaultValue="">
                     <option value="" disabled>Select product</option>
-                    {MOCK_PRODUCTS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                   {errors.lineItems?.[index]?.productName && (
                     <p className="text-[10px] text-destructive mt-0.5">Required</p>

@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Save } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 import {
   dcSettingsSchema,
   purchaseBillSettingsSchema,
@@ -10,7 +11,7 @@ import {
   type PurchaseBillSettingsValues,
 } from "@/lib/schemas/settings.schema";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { useSettings, useUpdateSettings } from "@/hooks/api/use-settings";
 
 const inp = cn(
   "w-full px-3 py-2 text-sm rounded-xl border border-border bg-secondary text-foreground outline-none",
@@ -38,6 +39,7 @@ function ToggleRow({ label, description, checked, onChange }: {
 
 /* ── Purchase Bill Settings ── */
 export function PurchaseBillSettings() {
+  const updateSettings = useUpdateSettings();
   const { control, handleSubmit, formState: { isSubmitting } } =
     useForm<PurchaseBillSettingsValues>({
       resolver: zodResolver(purchaseBillSettingsSchema),
@@ -45,7 +47,7 @@ export function PurchaseBillSettings() {
     });
 
   return (
-    <form onSubmit={handleSubmit(() => toast.success("Purchase bill settings saved"))} className="space-y-6">
+    <form onSubmit={handleSubmit((data) => updateSettings.mutate({ section: "purchase-bill", dto: data }))} className="space-y-6">
       <div className="bg-white rounded-2xl border border-border px-5">
         <Controller control={control} name="displayWithHoldingTax" render={({ field }) => (
           <ToggleRow
@@ -55,9 +57,10 @@ export function PurchaseBillSettings() {
           />
         )} />
       </div>
-      <button type="submit" disabled={isSubmitting}
+      <button type="submit" disabled={isSubmitting || updateSettings.isPending}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors disabled:opacity-60">
-        <Save size={14} />{isSubmitting ? "Saving…" : "Save"}
+        {updateSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        {updateSettings.isPending ? "Saving…" : "Save"}
       </button>
     </form>
   );
@@ -65,7 +68,10 @@ export function PurchaseBillSettings() {
 
 /* ── DC Settings ── */
 export function DCSettings() {
-  const { register, control, handleSubmit, formState: { isSubmitting } } =
+  const { data: settings, isLoading } = useSettings();
+  const updateSettings = useUpdateSettings();
+
+  const { register, control, handleSubmit, reset, formState: { isSubmitting } } =
     useForm<DCSettingsValues>({
       resolver: zodResolver(dcSettingsSchema),
       defaultValues: {
@@ -78,8 +84,40 @@ export function DCSettings() {
       },
     });
 
+  useEffect(() => {
+    if (settings) {
+      reset((prev) => ({
+        ...prev,
+        termsAndConditions: settings.termsAndConditions ?? "",
+      }));
+    }
+  }, [settings, reset]);
+
+  function onSubmit(data: DCSettingsValues) {
+    updateSettings.mutate({
+      section: "dc",
+      dto: {
+        challanPrefix: data.customHeading,
+        termsAndConditions: data.termsAndConditions,
+        displayRate: data.displayRate,
+        displayGstNo: data.displayGstNo,
+        defaultPrintType: data.defaultPrintType,
+        displayChallanOption: data.displayChallanOption,
+        customHeading: data.customHeading,
+      },
+    });
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit(() => toast.success("Delivery challan settings saved"))} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="bg-white rounded-2xl border border-border px-5">
         <Controller control={control} name="displayRate" render={({ field }) => (
           <ToggleRow label="Display Rate in Delivery Challan" description="Shows rate column on DC PDF" checked={field.value} onChange={field.onChange} />
@@ -113,9 +151,10 @@ export function DCSettings() {
         </div>
       </div>
 
-      <button type="submit" disabled={isSubmitting}
+      <button type="submit" disabled={isSubmitting || updateSettings.isPending}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors disabled:opacity-60">
-        <Save size={14} />{isSubmitting ? "Saving…" : "Save"}
+        {updateSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        {updateSettings.isPending ? "Saving…" : "Save"}
       </button>
     </form>
   );

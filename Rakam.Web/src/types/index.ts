@@ -35,9 +35,9 @@ export interface NavItem {
 
 // ── Auth / Account ───────────────────────────
 export interface AuthUser {
-  id: string;
+  userId: string;
+  accountId: string;
   mobile: string;
-  name?: string;
 }
 
 export interface Account {
@@ -339,6 +339,7 @@ export interface CreateSalesBillDto {
   dueDays?: number;
   partyId: string;
   applyGst: boolean;
+  discountPercent?: number;
   lineItems: CreateSalesBillLineItemDto[];
   remark?: string;
   challanNo?: string;
@@ -633,28 +634,26 @@ export interface GlobalSearchResult {
 }
 
 // ── Reports ──────────────────────────────────
-export type ReportType =
-  | "sales-summary"
-  | "purchase-summary"
-  | "party-ledger"
-  | "gst-summary"
-  | "profit-loss"
-  | "expense-summary"
-  | "stock-summary";
+export type ReportType = string;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ReportRow = Record<string, any>;
 
+export interface ReportColumn {
+  key: string;
+  label: string;
+}
+
 export interface ReportData {
   type: ReportType;
-  columns: string[];
+  columns: ReportColumn[];
   rows: ReportRow[];
   summary?: Record<string, number>;
 }
 
 export interface ReportFiltersDto extends QueryFilters {
   partyId?: string;
-  reportType?: ReportType;
+  reportType?: string;
   financialYear?: string;
 }
 
@@ -672,16 +671,7 @@ export interface FirmSettings {
   updatedAt: string;
 }
 
-export interface UpdateSettingsDto {
-  defaultDueDays?: number;
-  defaultBillType?: BillType;
-  invoicePrefix?: string;
-  challanPrefix?: string;
-  termsAndConditions?: string;
-  autoCalculateGst?: boolean;
-  showHsn?: boolean;
-  showItemCode?: boolean;
-}
+export type UpdateSettingsDto = Record<string, unknown>;
 
 // ── Subscription ─────────────────────────────
 export type PlanType = "trial" | "starter" | "professional" | "enterprise";

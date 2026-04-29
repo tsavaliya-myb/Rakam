@@ -3,16 +3,15 @@
 import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { X, Receipt, Upload, Plus } from "lucide-react";
+import { X, Receipt, Upload, Loader2 } from "lucide-react";
 import { addExpenseSchema, type AddExpenseFormValues } from "@/lib/schemas/expense.schema";
-import { MOCK_EXPENSE_CATEGORIES, MOCK_EXPENSE_SUPPLIERS, MOCK_EXPENSE_ITEMS } from "@/lib/mock/expenses";
 import { cn } from "@/lib/utils";
 import type { Expense } from "@/types";
+import { useExpenseCategories, useExpenseSuppliers, useCreateExpense, useUpdateExpense } from "@/hooks/api/use-expenses";
 
 interface Props {
   expense?: Expense | null;
   onClose: () => void;
-  onSubmit: (data: AddExpenseFormValues) => void;
 }
 
 const today = new Date().toISOString().split("T")[0];
@@ -36,7 +35,12 @@ const inputCls = cn(
   "placeholder:text-muted-foreground/60"
 );
 
-export function AddExpenseModal({ expense, onClose, onSubmit }: Props) {
+export function AddExpenseModal({ expense, onClose }: Props) {
+  const { data: categories = [], isLoading: catsLoading } = useExpenseCategories();
+  const { data: suppliers = [], isLoading: suppLoading }  = useExpenseSuppliers();
+  const createExpense = useCreateExpense();
+  const updateExpense = useUpdateExpense();
+
   const {
     register,
     control,
@@ -49,8 +53,8 @@ export function AddExpenseModal({ expense, onClose, onSubmit }: Props) {
     defaultValues: {
       mode: "AMOUNT",
       date: today,
-      category: "",
-      supplierName: "",
+      categoryId: "",
+      supplierId: "",
       amount: 0,
       note: "",
       expenseItem: "",
@@ -60,23 +64,21 @@ export function AddExpenseModal({ expense, onClose, onSubmit }: Props) {
   });
 
   const mode = watch("mode");
-  const qty = watch("qty");
+  const qty  = watch("qty");
   const rate = watch("rate");
 
-  // Auto-calculate amount in Item mode
   useEffect(() => {
     if (mode === "ITEM" && qty && rate) {
       setValue("amount", qty * rate);
     }
   }, [mode, qty, rate, setValue]);
 
-  // Populate for edit
   useEffect(() => {
     if (expense) {
       setValue("mode", expense.mode);
       setValue("date", expense.date);
-      setValue("category", expense.category);
-      setValue("supplierName", expense.supplierName ?? "");
+      setValue("categoryId", expense.categoryId);
+      setValue("supplierId", expense.supplierId ?? "");
       setValue("amount", expense.amount);
       setValue("note", expense.note ?? "");
       setValue("expenseItem", expense.expenseItem ?? "");
@@ -86,6 +88,29 @@ export function AddExpenseModal({ expense, onClose, onSubmit }: Props) {
   }, [expense, setValue]);
 
   const noteVal = watch("note") ?? "";
+
+  async function onSubmit(data: AddExpenseFormValues) {
+    const dto = {
+      date: data.date,
+      categoryId: data.categoryId,
+      supplierId: data.supplierId || undefined,
+      amount: data.amount,
+      note: data.note || undefined,
+      mode: data.mode,
+      expenseItem: data.expenseItem || undefined,
+      qty: data.qty,
+      rate: data.rate,
+    };
+
+    if (expense) {
+      await updateExpense.mutateAsync({ id: expense.id, dto });
+    } else {
+      await createExpense.mutateAsync(dto);
+    }
+    onClose();
+  }
+
+  const isPending = createExpense.isPending || updateExpense.isPending;
 
   return (
     <div
@@ -158,25 +183,39 @@ export function AddExpenseModal({ expense, onClose, onSubmit }: Props) {
             </div>
             <div>
               <Label required>Expense Category</Label>
-              <select {...register("category")} className={inputCls}>
-                <option value="">Select category</option>
-                {MOCK_EXPENSE_CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.name}>{c.name}</option>
-                ))}
-              </select>
-              <FieldError message={errors.category?.message} />
+              {catsLoading ? (
+                <div className={cn(inputCls, "flex items-center gap-2 text-muted-foreground")}>
+                  <Loader2 size={12} className="animate-spin" />
+                  <span className="text-xs">Loading…</span>
+                </div>
+              ) : (
+                <select {...register("categoryId")} className={inputCls}>
+                  <option value="">Select category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              )}
+              <FieldError message={errors.categoryId?.message} />
             </div>
           </div>
 
           {/* Supplier */}
           <div>
             <Label>Supplier Name</Label>
-            <select {...register("supplierName")} className={inputCls}>
-              <option value="">Select supplier</option>
-              {MOCK_EXPENSE_SUPPLIERS.map((s) => (
-                <option key={s.id} value={s.name}>{s.name}</option>
-              ))}
-            </select>
+            {suppLoading ? (
+              <div className={cn(inputCls, "flex items-center gap-2 text-muted-foreground")}>
+                <Loader2 size={12} className="animate-spin" />
+                <span className="text-xs">Loading…</span>
+              </div>
+            ) : (
+              <select {...register("supplierId")} className={inputCls}>
+                <option value="">Select supplier</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Item mode extras */}
@@ -184,12 +223,11 @@ export function AddExpenseModal({ expense, onClose, onSubmit }: Props) {
             <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-4">
               <div>
                 <Label required>Expense Item</Label>
-                <select {...register("expenseItem")} className={inputCls}>
-                  <option value="">Select item</option>
-                  {MOCK_EXPENSE_ITEMS.map((i) => (
-                    <option key={i.id} value={i.name}>{i.name}</option>
-                  ))}
-                </select>
+                <input
+                  {...register("expenseItem")}
+                  placeholder="Enter item name"
+                  className={inputCls}
+                />
                 <FieldError message={errors.expenseItem?.message} />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -261,14 +299,6 @@ export function AddExpenseModal({ expense, onClose, onSubmit }: Props) {
               {noteVal.length}/200
             </p>
           </div>
-
-          {/* Add Payment placeholder */}
-          <button
-            type="button"
-            className="flex items-center gap-2 text-xs font-semibold text-brand-700 hover:text-brand-900 transition-colors"
-          >
-            <Plus size={14} /> Add Payment
-          </button>
         </form>
 
         {/* Footer actions */}
@@ -281,12 +311,12 @@ export function AddExpenseModal({ expense, onClose, onSubmit }: Props) {
             Cancel
           </button>
           <button
-            type="submit"
-            form="expense-form"
+            type="button"
             onClick={handleSubmit(onSubmit)}
-            disabled={isSubmitting}
-            className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-brand-900 text-white hover:bg-brand-800 disabled:opacity-60 transition-colors"
+            disabled={isSubmitting || isPending}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold bg-brand-900 text-white hover:bg-brand-800 disabled:opacity-60 transition-colors"
           >
+            {(isSubmitting || isPending) && <Loader2 size={13} className="animate-spin" />}
             {expense ? "Update Expense" : "Save Expense"}
           </button>
         </div>

@@ -109,6 +109,7 @@ export function BillForm() {
       dueDate: data.dueDate || undefined,
       dueDays: data.dueDays,
       partyId: data.partyId,
+      applyGst,
       lineItems: data.lineItems.map((item) => ({
         productId: item.productId,
         productName: item.productName,
@@ -133,6 +134,7 @@ export function BillForm() {
       dueDate: data.dueDate || undefined,
       dueDays: data.dueDays,
       partyId: data.partyId,
+      applyGst,
       lineItems: data.lineItems.map((item) => ({
         productId: item.productId,
         productName: item.productName,

@@ -8,6 +8,7 @@ import {
   type PurchaseBillFilterValues,
 } from "@/lib/schemas/purchase-bill.schema";
 import { cn } from "@/lib/utils";
+import { usePartiesDropdown } from "@/hooks/api/use-parties";
 
 interface PurchaseBillFilterDrawerProps {
   open: boolean;
@@ -16,22 +17,13 @@ interface PurchaseBillFilterDrawerProps {
   defaultValues?: Partial<PurchaseBillFilterValues>;
 }
 
-const MOCK_SUPPLIERS = [
-  { id: "s1", name: "RK Mills" },
-  { id: "s2", name: "Agarwal Suppliers" },
-  { id: "s3", name: "VK Traders" },
-  { id: "s4", name: "Suresh Textiles" },
-  { id: "s5", name: "Modi Corporation" },
-  { id: "s6", name: "Deepak Polymers" },
-  { id: "s7", name: "National Stores" },
-];
-
 export function PurchaseBillFilterDrawer({
   open,
   onClose,
   onApply,
   defaultValues,
 }: PurchaseBillFilterDrawerProps) {
+  const { data: parties = [] } = usePartiesDropdown();
   const { register, handleSubmit, reset } = useForm<PurchaseBillFilterValues>({
     resolver: zodResolver(purchaseBillFilterSchema),
     defaultValues: { status: "ALL", billType: "ALL", ...defaultValues },
@@ -101,7 +93,7 @@ export function PurchaseBillFilterDrawer({
               className="w-full px-3 py-2 text-sm rounded-xl border border-border bg-secondary text-foreground outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-700/10 transition-all"
             >
               <option value="">All Suppliers</option>
-              {MOCK_SUPPLIERS.map((s) => (
+              {parties.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>

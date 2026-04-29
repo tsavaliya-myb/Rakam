@@ -8,7 +8,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Loader2, Phone, RotateCcw } from "lucide-react";
 
 import { mobileSchema, type MobileFormValues } from "@/lib/schemas/auth.schema";
-import { authApi, ApiError } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { authService } from "@/services/auth";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +58,7 @@ export default function LoginPage() {
   const onSendOtp = async ({ mobile }: MobileFormValues) => {
     setIsSending(true);
     try {
-      const { reqId: id } = await authApi.sendOtp(mobile);
+      const { reqId: id } = await authService.sendOtp(mobile);
       setReqId(id);
       setMaskedMobile(`${mobile.slice(0, 2)}XXXXXX${mobile.slice(-2)}`);
       setStep("otp");
@@ -79,8 +80,8 @@ export default function LoginPage() {
     setOtpError("");
     setIsVerifying(true);
     try {
-      const tokens = await authApi.verifyOtp(reqId, otp);
-      setAuth(tokens);
+      const { user, ...tokens } = await authService.verifyOtp(reqId, otp);
+      setAuth(tokens, user);
       toast.success("Logged in successfully");
       router.replace(redirectTo);
     } catch (err) {
@@ -98,7 +99,7 @@ export default function LoginPage() {
     setOtp("");
     setOtpError("");
     try {
-      await authApi.retryOtp(reqId);
+      await authService.retryOtp(reqId);
       setCountdown(RESEND_DELAY);
       toast.success("OTP resent");
     } catch {

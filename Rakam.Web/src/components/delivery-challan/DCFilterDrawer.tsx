@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { X, Filter, RotateCcw } from "lucide-react";
 import { dcFilterSchema, type DCFilterValues } from "@/lib/schemas/delivery-challan.schema";
 import { cn } from "@/lib/utils";
+import { usePartiesDropdown } from "@/hooks/api/use-parties";
 
 interface DCFilterDrawerProps {
   open: boolean;
@@ -13,17 +14,8 @@ interface DCFilterDrawerProps {
   defaultValues?: Partial<DCFilterValues>;
 }
 
-const MOCK_PARTIES = [
-  { id: "p1", name: "Mehta Co." },
-  { id: "p2", name: "Patel Enterprises" },
-  { id: "p3", name: "Sharma Traders" },
-  { id: "p4", name: "Joshi Limited" },
-  { id: "p5", name: "Gupta & Co." },
-  { id: "p6", name: "Desai Manufacturing" },
-  { id: "p7", name: "Reddy Brothers" },
-];
-
 export function DCFilterDrawer({ open, onClose, onApply, defaultValues }: DCFilterDrawerProps) {
+  const { data: parties = [] } = usePartiesDropdown();
   const { register, handleSubmit, reset } = useForm<DCFilterValues>({
     resolver: zodResolver(dcFilterSchema),
     defaultValues: { salesBillCreated: "ALL", ...defaultValues },
@@ -78,7 +70,7 @@ export function DCFilterDrawer({ open, onClose, onApply, defaultValues }: DCFilt
             <select {...register("partyId")}
               className="w-full px-3 py-2 text-sm rounded-xl border border-border bg-secondary text-foreground outline-none focus:border-teal-300 focus:ring-2 focus:ring-teal-700/10 transition-all">
               <option value="">All Parties</option>
-              {MOCK_PARTIES.map((p) => (
+              {parties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>

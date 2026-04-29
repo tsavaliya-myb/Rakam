@@ -7,6 +7,7 @@ import { Save, Rocket, AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSubscriptionStore } from "@/store/useSubscriptionStore";
 import type { PlanType } from "@/types";
 import { otherSettingsSchema, type OtherSettingsValues } from "@/lib/schemas/settings.schema";
+import { useUpdateSettings } from "@/hooks/api/use-settings";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -99,6 +100,7 @@ export function InventorySettings() {
 
 /* ── Other Settings ── */
 export function OtherSettings() {
+  const updateSettings = useUpdateSettings();
   const { control, handleSubmit, formState: { isSubmitting } } =
     useForm<OtherSettingsValues>({
       resolver: zodResolver(otherSettingsSchema),
@@ -111,7 +113,7 @@ export function OtherSettings() {
     });
 
   return (
-    <form onSubmit={handleSubmit(() => toast.success("Other settings saved"))} className="space-y-6">
+    <form onSubmit={handleSubmit((data) => updateSettings.mutate({ section: "other", dto: data }))} className="space-y-6">
       <div className="bg-white rounded-2xl border border-border px-5">
         <Controller control={control} name="enableShortcuts" render={({ field }) => (
           <ToggleRow label="Enable / Disable Shortcuts" description="Keyboard shortcut support across the app" checked={field.value} onChange={field.onChange} />
@@ -126,9 +128,10 @@ export function OtherSettings() {
           <ToggleRow label="Enable Shipment Address" description="Add shipment address per party on bills" checked={field.value} onChange={field.onChange} />
         )} />
       </div>
-      <button type="submit" disabled={isSubmitting}
+      <button type="submit" disabled={isSubmitting || updateSettings.isPending}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors disabled:opacity-60">
-        <Save size={14} />{isSubmitting ? "Saving…" : "Save"}
+        {updateSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        {updateSettings.isPending ? "Saving…" : "Save"}
       </button>
     </form>
   );

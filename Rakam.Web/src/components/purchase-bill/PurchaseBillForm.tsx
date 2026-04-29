@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Calendar, Paperclip, X, Plus, ChevronRight, StickyNote } from "lucide-react";
+import { ChevronDown, Calendar, Paperclip, X, Plus, ChevronRight, StickyNote, Loader2 } from "lucide-react";
 import {
   purchaseBillFormSchema,
   type PurchaseBillFormValues,
@@ -12,16 +12,9 @@ import {
 import { PurchaseLineItemsTable } from "./PurchaseLineItemsTable";
 import { PurchaseBillTotals } from "./PurchaseBillTotals";
 import { cn } from "@/lib/utils";
-
-const MOCK_SUPPLIERS = [
-  { id: "s1", name: "RK Mills",          dueDays: 30 },
-  { id: "s2", name: "Agarwal Suppliers", dueDays: 30 },
-  { id: "s3", name: "VK Traders",        dueDays: 15 },
-  { id: "s4", name: "Suresh Textiles",   dueDays: 30 },
-  { id: "s5", name: "Modi Corporation",  dueDays: 15 },
-  { id: "s6", name: "Deepak Polymers",   dueDays: 30 },
-  { id: "s7", name: "National Stores",   dueDays: 30 },
-];
+import { usePartiesDropdown } from "@/hooks/api/use-parties";
+import { useCreatePurchaseBill, useUpdatePurchaseBill } from "@/hooks/api/use-purchase-bills";
+import type { PurchaseBill } from "@/types";
 
 const GST_RATES = [0, 0.25, 1, 1.5, 3, 5, 6, 7.5, 12, 18, 28];
 
@@ -31,34 +24,69 @@ const inp = cn(
 );
 const lbl = "block text-xs font-semibold text-foreground mb-1.5";
 
-export function PurchaseBillForm() {
+interface PurchaseBillFormProps {
+  bill?: PurchaseBill;
+}
+
+export function PurchaseBillForm({ bill }: PurchaseBillFormProps) {
   const router = useRouter();
+  const isEdit = !!bill;
+
   const [selectedGst, setSelectedGst] = useState(18);
-  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState<string | null>(
+    bill?.attachmentUrl ? bill.attachmentUrl.split("/").pop() ?? null : null
+  );
   const today = new Date().toISOString().split("T")[0];
+
+  const { data: parties = [], isLoading: partiesLoading } = usePartiesDropdown();
+  const createBill = useCreatePurchaseBill();
+  const updateBill = useUpdatePurchaseBill();
 
   const methods = useForm<PurchaseBillFormValues>({
     resolver: zodResolver(purchaseBillFormSchema),
-    defaultValues: {
-      partyId: "",
-      applyGst: false,
-      billNo: "",
-      billDate: today,
-      dueDays: 30,
-      dueDate: "",
-      lineItems: [{
-        id: crypto.randomUUID(),
-        productName: "",
-        itemCode: "",
-        hsnCode: "",
-        qty: 1,
-        unit: "Pcs",
-        rate: 0,
-        discount: 0,
-        amount: 0,
-      }],
-      remark: "",
-    },
+    defaultValues: bill
+      ? {
+          partyId: bill.partyId,
+          applyGst: bill.applyGst,
+          billNo: bill.billNo,
+          billDate: bill.billDate,
+          dueDays: bill.dueDays ?? 30,
+          dueDate: bill.dueDate ?? "",
+          lineItems: bill.lineItems.map((li) => ({
+            id: crypto.randomUUID(),
+            productId: li.productId,
+            productName: li.productName,
+            itemCode: li.itemCode ?? "",
+            hsnCode: li.hsnCode ?? "",
+            qty: li.qty,
+            unit: li.unit,
+            rate: li.rate,
+            discount: li.discount ?? 0,
+            amount: li.amount,
+          })),
+          remark: bill.remark ?? "",
+          attachmentUrl: bill.attachmentUrl ?? "",
+        }
+      : {
+          partyId: "",
+          applyGst: false,
+          billNo: "",
+          billDate: today,
+          dueDays: 30,
+          dueDate: "",
+          lineItems: [{
+            id: crypto.randomUUID(),
+            productName: "",
+            itemCode: "",
+            hsnCode: "",
+            qty: 1,
+            unit: "Pcs",
+            rate: 0,
+            discount: 0,
+            amount: 0,
+          }],
+          remark: "",
+        },
   });
 
   const {
@@ -78,17 +106,8 @@ export function PurchaseBillForm() {
     }
   }
 
-  function handleSupplierSelect(e: React.ChangeEvent<HTMLSelectElement>) {
-    const supplier = MOCK_SUPPLIERS.find((s) => s.id === e.target.value);
+  function handlePartySelect(e: React.ChangeEvent<HTMLSelectElement>) {
     setValue("partyId", e.target.value);
-    if (supplier) {
-      setValue("dueDays", supplier.dueDays);
-      if (supplier.dueDays > 0) {
-        const d = new Date();
-        d.setDate(d.getDate() + supplier.dueDays);
-        setValue("dueDate", d.toISOString().split("T")[0]);
-      }
-    }
   }
 
   function handleAttachment(e: React.ChangeEvent<HTMLInputElement>) {
@@ -96,14 +115,62 @@ export function PurchaseBillForm() {
     if (file) setAttachmentName(file.name);
   }
 
-  function onSubmit(data: PurchaseBillFormValues) {
-    console.log("PURCHASE BILL SUBMIT:", data);
-    // TODO: API call via TanStack Query mutation
+  function buildDto(data: PurchaseBillFormValues) {
+    return {
+      billNo: data.billNo,
+      billDate: data.billDate,
+      billType: (data.applyGst ? "WITH_TAX" : "WITHOUT_TAX") as "WITH_TAX" | "WITHOUT_TAX",
+      dueDate: data.dueDate || undefined,
+      dueDays: data.dueDays,
+      partyId: data.partyId,
+      applyGst: data.applyGst,
+      lineItems: data.lineItems.map((li) => ({
+        productId: li.productId || undefined,
+        productName: li.productName,
+        qty: li.qty,
+        unit: li.unit,
+        rate: li.rate,
+        discount: li.discount || undefined,
+        gst: data.applyGst ? selectedGst : undefined,
+      })),
+      remark: data.remark || undefined,
+    };
   }
 
-  function onSaveAndNew(data: PurchaseBillFormValues) {
-    console.log("SAVE & NEW:", data);
-    reset();
+  async function onSubmit(data: PurchaseBillFormValues) {
+    const dto = buildDto(data);
+    if (isEdit) {
+      await updateBill.mutateAsync({ id: bill.id, dto });
+    } else {
+      await createBill.mutateAsync(dto);
+    }
+    router.push("/purchase-bill");
+  }
+
+  async function onSaveAndNew(data: PurchaseBillFormValues) {
+    const dto = buildDto(data);
+    await createBill.mutateAsync(dto);
+    reset({
+      partyId: "",
+      applyGst: false,
+      billNo: "",
+      billDate: today,
+      dueDays: 30,
+      dueDate: "",
+      lineItems: [{
+        id: crypto.randomUUID(),
+        productName: "",
+        itemCode: "",
+        hsnCode: "",
+        qty: 1,
+        unit: "Pcs",
+        rate: 0,
+        discount: 0,
+        amount: 0,
+      }],
+      remark: "",
+    });
+    setAttachmentName(null);
   }
 
   return (
@@ -125,17 +192,27 @@ export function PurchaseBillForm() {
                 Party / Supplier <span className="text-destructive">*</span>
               </label>
               <div className="relative">
-                <select onChange={handleSupplierSelect} className={cn(inp, "appearance-none pr-8")} defaultValue="">
-                  <option value="" disabled>Select supplier</option>
-                  {MOCK_SUPPLIERS.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                {partiesLoading ? (
+                  <div className={cn(inp, "flex items-center gap-2 text-muted-foreground")}>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span className="text-xs">Loading parties…</span>
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      {...register("partyId")}
+                      onChange={handlePartySelect}
+                      className={cn(inp, "appearance-none pr-8", errors.partyId && "border-destructive")}
+                    >
+                      <option value="" disabled>Select supplier</option>
+                      {parties.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  </>
+                )}
               </div>
-              <button type="button" className="text-[11px] text-violet-700 hover:underline mt-1 font-medium">
-                + Add Party
-              </button>
               {errors.partyId && (
                 <p className="text-[11px] text-destructive mt-1">{errors.partyId.message}</p>
               )}
@@ -274,15 +351,17 @@ export function PurchaseBillForm() {
 
         {/* ── Actions ── */}
         <div className="flex flex-wrap items-center gap-3 pb-6">
-          <button
-            type="button"
-            onClick={handleSubmit(onSaveAndNew)}
-            disabled={isSubmitting}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-60"
-          >
-            <Plus size={15} />
-            Save & Create New
-          </button>
+          {!isEdit && (
+            <button
+              type="button"
+              onClick={handleSubmit(onSaveAndNew)}
+              disabled={isSubmitting || createBill.isPending}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-60"
+            >
+              <Plus size={15} />
+              Save & Create New
+            </button>
+          )}
 
           <button
             type="button"
@@ -294,10 +373,14 @@ export function PurchaseBillForm() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || createBill.isPending || updateBill.isPending}
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-violet-700 hover:bg-violet-800 transition-colors disabled:opacity-60 ml-auto"
           >
-            Submit <ChevronRight size={15} />
+            {(isSubmitting || createBill.isPending || updateBill.isPending) && (
+              <Loader2 size={14} className="animate-spin" />
+            )}
+            {isEdit ? "Update Bill" : "Submit"}
+            {!isEdit && <ChevronRight size={15} />}
           </button>
         </div>
       </form>

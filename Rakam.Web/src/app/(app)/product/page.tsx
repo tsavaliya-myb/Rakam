@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from "react";
 import { Plus, Search, MoreHorizontal, Pencil, Trash2, Loader2 } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import { ProductModal } from "@/components/product/ProductModal";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Product } from "@/types";
@@ -20,7 +22,7 @@ export default function ProductPage() {
   const [pageSize, setPageSize]   = useState(20);
   const [openMenu, setOpenMenu]   = useState<string | null>(null);
 
-  const { data, isLoading, isError, error } = useProducts();
+  const { data, isLoading, isError, error, refetch } = useProducts();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -101,7 +103,16 @@ export default function ProductPage() {
         </div>
       </div>
 
-      {/* ── Table ── */}
+      {isLoading ? (
+        <TableSkeleton
+          headers={["Product Name", "Item Code", "HSN Code", "Rate", "Unit", "GST", "Action"]}
+        />
+      ) : isError ? (
+        <ErrorState
+          message={(error as Error)?.message ?? "Failed to load products."}
+          onRetry={() => refetch()}
+        />
+      ) : (
       <div className="overflow-x-auto rounded-2xl border border-border bg-white">
         <table className="w-full min-w-[680px] text-left">
           <thead>
@@ -115,19 +126,7 @@ export default function ProductPage() {
           </thead>
 
           <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-16 text-center">
-                  <Loader2 size={24} className="animate-spin text-muted-foreground mx-auto" />
-                </td>
-              </tr>
-            ) : isError ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-16 text-center text-sm text-destructive">
-                  {(error as Error)?.message ?? "Failed to load products."}
-                </td>
-              </tr>
-            ) : filtered.slice(0, pageSize).length === 0 ? (
+            {filtered.slice(0, pageSize).length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-16 text-center text-sm text-muted-foreground">
                   {search ? "No products match your search." : "No products yet. Add your first product."}
@@ -230,6 +229,7 @@ export default function ProductPage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {!isLoading && !isError && (
         <p className="text-xs text-muted-foreground mt-3 px-1">

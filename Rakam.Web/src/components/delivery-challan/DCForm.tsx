@@ -1,25 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Calendar, StickyNote, Plus, ChevronRight } from "lucide-react";
+import { ChevronDown, Calendar, StickyNote, Plus, ChevronRight, Loader2 } from "lucide-react";
 import { dcFormSchema, type DCFormValues } from "@/lib/schemas/delivery-challan.schema";
 import { PartyChallanSection } from "./PartyChallanSection";
 import { DCLineItemsTable } from "./DCLineItemsTable";
 import { DCTotals } from "./DCTotals";
 import { cn } from "@/lib/utils";
-
-const MOCK_PARTIES = [
-  { id: "p1", name: "Mehta Co." },
-  { id: "p2", name: "Patel Enterprises" },
-  { id: "p3", name: "Sharma Traders" },
-  { id: "p4", name: "Joshi Limited" },
-  { id: "p5", name: "Gupta & Co." },
-  { id: "p6", name: "Desai Manufacturing" },
-  { id: "p7", name: "Reddy Brothers" },
-];
+import { usePartiesDropdown } from "@/hooks/api/use-parties";
+import { useCreateDC, useUpdateDC } from "@/hooks/api/use-delivery-challans";
+import type { DeliveryChallan } from "@/types";
 
 const inp = cn(
   "w-full px-3 py-2 text-sm rounded-xl border border-border bg-secondary text-foreground outline-none",
@@ -27,15 +19,100 @@ const inp = cn(
 );
 const lbl = "block text-xs font-semibold text-foreground mb-1.5";
 
-export function DCForm() {
+interface DCFormProps {
+  dc?: DeliveryChallan;
+}
+
+export function DCForm({ dc }: DCFormProps) {
   const router = useRouter();
+  const isEdit = !!dc;
   const today = new Date().toISOString().split("T")[0];
+
+  const { data: parties = [], isLoading: partiesLoading } = usePartiesDropdown();
+  const createDC = useCreateDC();
+  const updateDC = useUpdateDC();
 
   const methods = useForm<DCFormValues>({
     resolver: zodResolver(dcFormSchema),
-    defaultValues: {
+    defaultValues: dc
+      ? {
+          partyId: dc.partyId,
+          dcNo: dc.dcNo,
+          dcDate: dc.dcDate,
+          challans: dc.partyChallanNo
+            ? [{ id: crypto.randomUUID(), noChallan: false, partyChallanNo: dc.partyChallanNo, partyChallanDate: dc.partyChallanDate }]
+            : [],
+          lineItems: dc.lineItems.map((li) => ({
+            id: crypto.randomUUID(),
+            productId: li.productId,
+            productName: li.productName,
+            itemCode: li.itemCode ?? "",
+            hsnCode: li.hsnCode ?? "",
+            qty: li.qty,
+            unit: li.unit,
+            rate: li.rate,
+            amount: li.amount,
+          })),
+          remark: dc.remark ?? "",
+        }
+      : {
+          partyId: "",
+          dcNo: "",
+          dcDate: today,
+          challans: [],
+          lineItems: [{
+            id: crypto.randomUUID(),
+            productName: "",
+            itemCode: "",
+            hsnCode: "",
+            qty: 1,
+            unit: "Pcs",
+            rate: 0,
+            amount: 0,
+          }],
+          remark: "",
+        },
+  });
+
+  const {
+    register, watch, setValue, handleSubmit, reset,
+    formState: { errors, isSubmitting },
+  } = methods;
+
+  function buildDto(data: DCFormValues) {
+    const firstChallan = data.challans?.find((c) => !c.noChallan && c.partyChallanNo);
+    return {
+      dcDate: data.dcDate,
+      partyId: data.partyId,
+      partyChallanNo: firstChallan?.partyChallanNo || undefined,
+      partyChallanDate: firstChallan?.partyChallanDate || undefined,
+      lineItems: data.lineItems.map((li) => ({
+        productId: li.productId || undefined,
+        productName: li.productName,
+        qty: li.qty,
+        unit: li.unit,
+        rate: li.rate,
+        discount: undefined,
+      })),
+      remark: data.remark || undefined,
+    };
+  }
+
+  async function onSubmit(data: DCFormValues) {
+    const dto = buildDto(data);
+    if (isEdit) {
+      await updateDC.mutateAsync({ id: dc.id, dto });
+    } else {
+      await createDC.mutateAsync(dto);
+    }
+    router.push("/delivery-challan");
+  }
+
+  async function onSaveAndNew(data: DCFormValues) {
+    await createDC.mutateAsync(buildDto(data));
+    reset({
       partyId: "",
-      dcNo: "1",
+      dcNo: "",
       dcDate: today,
       challans: [],
       lineItems: [{
@@ -49,23 +126,10 @@ export function DCForm() {
         amount: 0,
       }],
       remark: "",
-    },
-  });
-
-  const {
-    register, watch, setValue, handleSubmit, reset,
-    formState: { errors, isSubmitting },
-  } = methods;
-
-  function onSubmit(data: DCFormValues) {
-    console.log("DC SUBMIT:", data);
-    // TODO: API mutation
+    });
   }
 
-  function onSaveAndNew(data: DCFormValues) {
-    console.log("DC SAVE & NEW:", data);
-    reset();
-  }
+  const isPending = createDC.isPending || updateDC.isPending;
 
   return (
     <FormProvider {...methods}>
@@ -86,21 +150,26 @@ export function DCForm() {
                 Party <span className="text-destructive">*</span>
               </label>
               <div className="relative">
-                <select
-                  onChange={(e) => setValue("partyId", e.target.value)}
-                  defaultValue=""
-                  className={cn(inp, "appearance-none pr-8", errors.partyId && "border-destructive")}
-                >
-                  <option value="" disabled>Select party</option>
-                  {MOCK_PARTIES.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                {partiesLoading ? (
+                  <div className={cn(inp, "flex items-center gap-2 text-muted-foreground")}>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span className="text-xs">Loading parties…</span>
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      {...register("partyId")}
+                      className={cn(inp, "appearance-none pr-8", errors.partyId && "border-destructive")}
+                    >
+                      <option value="" disabled>Select party</option>
+                      {parties.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  </>
+                )}
               </div>
-              <button type="button" className="text-[11px] text-teal-700 hover:underline mt-1 font-medium">
-                + Add Party
-              </button>
               {errors.partyId && (
                 <p className="text-[11px] text-destructive mt-1">{errors.partyId.message}</p>
               )}
@@ -171,15 +240,17 @@ export function DCForm() {
 
         {/* ── Actions ── */}
         <div className="flex flex-wrap items-center gap-3 pb-6">
-          <button
-            type="button"
-            onClick={handleSubmit(onSaveAndNew)}
-            disabled={isSubmitting}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-60"
-          >
-            <Plus size={15} />
-            Save & Create New D.Ch.
-          </button>
+          {!isEdit && (
+            <button
+              type="button"
+              onClick={handleSubmit(onSaveAndNew)}
+              disabled={isSubmitting || isPending}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-60"
+            >
+              <Plus size={15} />
+              Save & Create New D.Ch.
+            </button>
+          )}
 
           <button
             type="button"
@@ -191,10 +262,12 @@ export function DCForm() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isPending}
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-teal-700 hover:bg-teal-800 transition-colors disabled:opacity-60 ml-auto"
           >
-            Submit <ChevronRight size={15} />
+            {(isSubmitting || isPending) && <Loader2 size={14} className="animate-spin" />}
+            {isEdit ? "Update Challan" : "Submit"}
+            {!isEdit && <ChevronRight size={15} />}
           </button>
         </div>
       </form>

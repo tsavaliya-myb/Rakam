@@ -1,56 +1,57 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Plus, Download, Filter, Search } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { ErrorState } from "@/components/ui/error-state";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DCListTable } from "@/components/delivery-challan/DCListTable";
 import { DCFilterDrawer } from "@/components/delivery-challan/DCFilterDrawer";
-import { MOCK_DELIVERY_CHALLANS } from "@/lib/mock/delivery-challans";
 import { cn } from "@/lib/utils";
 import type { DeliveryChallan } from "@/types";
 import type { DCFilterValues } from "@/lib/schemas/delivery-challan.schema";
 import { toast } from "sonner";
+import { useDeliveryChallans, useDeleteDC, useConvertToInvoice } from "@/hooks/api/use-delivery-challans";
+
+type BilledFilter = "ALL" | "YES" | "NO";
 
 export default function DeliveryChallanPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery]           = useState("");
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [activeFilters, setActiveFilters]       = useState<Partial<DCFilterValues>>({});
   const [filterActive, setFilterActive]         = useState(false);
+  const [billedFilter, setBilledFilter]         = useState<BilledFilter>("ALL");
 
-  const filteredData = useMemo(() => {
-    let data = [...MOCK_DELIVERY_CHALLANS];
+  const apiFilters = {
+    partyId: activeFilters.partyId || undefined,
+    billed: billedFilter === "ALL" ? undefined : billedFilter === "YES",
+  };
 
+  const { data, isLoading, isError, refetch } = useDeliveryChallans(apiFilters);
+  const deleteDC      = useDeleteDC();
+  const convertToInvoice = useConvertToInvoice();
+
+  const allChallans = data?.data ?? [];
+
+  const filteredData = allChallans.filter((d) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      data = data.filter(
-        (d) =>
-          d.dcNo.toLowerCase().includes(q) ||
-          d.partyName.toLowerCase().includes(q) ||
-          (d.partyChallanNo?.toLowerCase().includes(q) ?? false)
-      );
+      if (
+        !d.dcNo.toLowerCase().includes(q) &&
+        !d.partyName.toLowerCase().includes(q) &&
+        !(d.partyChallanNo?.toLowerCase().includes(q) ?? false)
+      ) return false;
     }
-
-    if (activeFilters.salesBillCreated && activeFilters.salesBillCreated !== "ALL") {
-      data = data.filter((d) =>
-        activeFilters.salesBillCreated === "YES" ? d.salesBillCreated : !d.salesBillCreated
-      );
-    }
-
-    if (activeFilters.partyId) {
-      data = data.filter((d) => d.partyId === activeFilters.partyId);
-    }
-    if (activeFilters.fromDate) {
-      data = data.filter((d) => d.dcDate >= activeFilters.fromDate!);
-    }
-    if (activeFilters.toDate) {
-      data = data.filter((d) => d.dcDate <= activeFilters.toDate!);
-    }
-
-    return data;
-  }, [searchQuery, activeFilters]);
+    if (activeFilters.fromDate && d.dcDate < activeFilters.fromDate) return false;
+    if (activeFilters.toDate   && d.dcDate > activeFilters.toDate)   return false;
+    return true;
+  });
 
   function handleApplyFilters(filters: DCFilterValues) {
     setActiveFilters(filters);
+    setBilledFilter(filters.salesBillCreated ?? "ALL");
     setFilterActive(
       filters.salesBillCreated !== "ALL" || !!filters.partyId || !!filters.fromDate || !!filters.toDate
     );
@@ -61,7 +62,7 @@ export default function DeliveryChallanPage() {
       toast.info(`Sales bill already created for ${dc.dcNo}`);
       return;
     }
-    toast.success(`Creating sales bill from ${dc.dcNo}…`);
+    convertToInvoice.mutate(dc.id);
   }
 
   return (
@@ -116,21 +117,17 @@ export default function DeliveryChallanPage() {
 
         {/* Bill created quick filters */}
         <div className="flex items-center bg-white rounded-xl border border-border p-1 gap-1">
-          {[
-            { label: "All",      value: "ALL" },
-            { label: "✓ Billed", value: "YES" },
-            { label: "✗ Pending",value: "NO"  },
-          ].map((opt) => (
+          {([
+            { label: "All",       value: "ALL" },
+            { label: "✓ Billed",  value: "YES" },
+            { label: "✗ Pending", value: "NO"  },
+          ] as { label: string; value: BilledFilter }[]).map((opt) => (
             <button
               key={opt.value}
-              onClick={() => {
-                const updated = { ...activeFilters, salesBillCreated: opt.value as any };
-                setActiveFilters(updated);
-                setFilterActive(opt.value !== "ALL");
-              }}
+              onClick={() => setBilledFilter(opt.value)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                (activeFilters.salesBillCreated ?? "ALL") === opt.value
+                billedFilter === opt.value
                   ? "bg-teal-700 text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary"
               )}
@@ -159,15 +156,21 @@ export default function DeliveryChallanPage() {
       </div>
 
       {/* ── Table ── */}
-      <DCListTable
-        data={filteredData}
-        onCreateSalesBill={handleCreateSalesBill}
-        onView={(dc) => toast.info(`Viewing ${dc.dcNo}`)}
-        onPrint={(dc) => toast.info(`Printing ${dc.dcNo}…`)}
-        onDownload={(dc) => toast.info(`Downloading ${dc.dcNo}…`)}
-        onEdit={(dc) => toast.info(`Edit ${dc.dcNo} — coming soon`)}
-        onDelete={(dc) => toast.error(`Delete ${dc.dcNo} — coming soon`)}
-      />
+      {isLoading ? (
+        <TableSkeleton headers={["Date", "DC No.", "Party", "Challan No.", "Amount", "Billed", "Action"]} />
+      ) : isError ? (
+        <ErrorState message="Failed to load delivery challans." onRetry={() => refetch()} />
+      ) : (
+        <DCListTable
+          data={filteredData}
+          onCreateSalesBill={handleCreateSalesBill}
+          onView={(dc) => toast.info(`Viewing ${dc.dcNo}`)}
+          onPrint={(dc) => toast.info(`Printing ${dc.dcNo}…`)}
+          onDownload={(dc) => toast.info(`Downloading ${dc.dcNo}…`)}
+          onEdit={(dc) => router.push(`/delivery-challan/${dc.id}/edit`)}
+          onDelete={(dc) => deleteDC.mutate(dc.id)}
+        />
+      )}
 
       {/* ── Filter Drawer ── */}
       <DCFilterDrawer

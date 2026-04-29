@@ -3,40 +3,16 @@
 import { useState } from "react";
 import {
   Plus, Search, MoreHorizontal, Pencil, Trash2,
-  ArrowUp, ArrowDown, AlertCircle, Loader2,
+  ArrowUp, ArrowDown, Loader2,
 } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import { PartyModal } from "@/components/party/PartyModal";
 import { useParties, useCreateParty, useUpdateParty, useDeleteParty } from "@/hooks/api/use-parties";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Party } from "@/types";
 import type { PartyFormValues } from "@/lib/schemas/party-product.schema";
 
-function TableSkeleton() {
-  return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-white">
-      <table className="w-full min-w-[640px]">
-        <thead>
-          <tr className="border-b border-border bg-secondary/60">
-            {["Party Name", "GST No.", "PAN Number", "Pay / Receive", "Action"].map((h) => (
-              <th key={h} className="px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {[...Array(8)].map((_, i) => (
-            <tr key={i} className="border-b border-border">
-              {[...Array(5)].map((_, j) => (
-                <td key={j} className="px-4 py-3">
-                  <div className="h-4 bg-muted animate-pulse rounded-lg w-3/4" />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 export default function PartyPage() {
   const [search, setSearch]       = useState("");
@@ -151,13 +127,10 @@ export default function PartyPage() {
       {isLoading ? (
         <TableSkeleton />
       ) : isError ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-          <AlertCircle size={32} strokeWidth={1.5} className="text-destructive/60" />
-          <p className="text-sm font-medium">Failed to load parties.</p>
-          <button onClick={() => refetch()} className="text-xs font-semibold text-brand-700 hover:underline">
-            Try again
-          </button>
-        </div>
+        <ErrorState
+          message="Failed to load parties."
+          onRetry={() => refetch()}
+        />
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border bg-white">
           <table className="w-full min-w-[640px] text-left">

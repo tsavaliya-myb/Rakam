@@ -2,57 +2,77 @@
 
 import { useState } from "react";
 import {
-  BarChart3, Download, RotateCcw, ChevronDown, FileText,
+  BarChart3, Download, RotateCcw, ChevronDown, FileText, Loader2,
 } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ReportTable } from "@/components/reports/ReportTable";
-import { MOCK_PARTIES } from "@/lib/mock/parties";
-import { MOCK_REPORT_DATA, REPORT_COLUMNS } from "@/lib/mock/reports";
 import { REPORT_TYPES } from "@/config/constants";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { ReportRow } from "@/types";
+import { useReport, useExportReport } from "@/hooks/api/use-reports";
+import { usePartiesDropdown } from "@/hooks/api/use-parties";
+import type { ReportFiltersDto } from "@/types";
 
 const FY_START = "2026-04-01";
 const FY_END   = "2027-03-31";
 
+interface ActiveFilters {
+  type: string;
+  filters: ReportFiltersDto;
+}
+
 export default function ReportsPage() {
-  const [reportType, setReportType] = useState<string>("");
-  const [partyId,    setPartyId]    = useState("");
-  const [fromDate,   setFromDate]   = useState(FY_START);
-  const [toDate,     setToDate]     = useState(FY_END);
-  const [generated,  setGenerated]  = useState(false);
-  const [reportData, setReportData] = useState<ReportRow[]>([]);
+  const [selectedType, setSelectedType] = useState("");
+  const [partyId,      setPartyId]      = useState("");
+  const [fromDate,     setFromDate]      = useState(FY_START);
+  const [toDate,       setToDate]        = useState(FY_END);
+  const [active,       setActive]        = useState<ActiveFilters | null>(null);
+
+  const { data: parties } = usePartiesDropdown();
+
+  const { data, isLoading, isError, error, refetch } = useReport(
+    active?.type ?? "",
+    active?.filters,
+  );
+
+  const exportMutation = useExportReport();
 
   function handleGenerate() {
-    if (!reportType) {
+    if (!selectedType) {
       toast.error("Please select a report type");
       return;
     }
-    const raw = MOCK_REPORT_DATA[reportType] ?? [];
-    let filtered = [...raw];
-    // Party filter (for rows that have a "party" key)
-    if (partyId) {
-      const party = MOCK_PARTIES.find((p) => p.id === partyId);
-      if (party) {
-        filtered = filtered.filter((r) =>
-          !r.party || r.party === party.name
-        );
-      }
-    }
-    setReportData(filtered);
-    setGenerated(true);
+    setActive({
+      type: selectedType,
+      filters: {
+        partyId: partyId || undefined,
+        fromDate,
+        toDate,
+      },
+    });
   }
 
   function handleReset() {
-    setReportType("");
+    setSelectedType("");
     setPartyId("");
     setFromDate(FY_START);
     setToDate(FY_END);
-    setGenerated(false);
-    setReportData([]);
+    setActive(null);
   }
 
-  const columns = reportType ? (REPORT_COLUMNS[reportType] ?? []) : [];
+  function handleExport() {
+    if (!active) return;
+    exportMutation.mutate({
+      type: active.type,
+      format: "excel",
+      filters: active.filters,
+    });
+  }
+
+  const generated = !!active;
+  const selectedPartyName = parties?.find((p) => p.id === partyId)?.name;
 
   return (
     <div className="p-6">
@@ -67,10 +87,14 @@ export default function ReportsPage() {
         </div>
         {generated && (
           <button
-            onClick={() => toast.info("Exporting to Excel…")}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold border border-border text-foreground bg-white hover:bg-secondary transition-colors"
+            onClick={handleExport}
+            disabled={exportMutation.isPending}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold border border-border text-foreground bg-white hover:bg-secondary transition-colors disabled:opacity-60"
           >
-            <Download size={14} strokeWidth={1.8} /> Export
+            {exportMutation.isPending
+              ? <Loader2 size={14} className="animate-spin" />
+              : <Download size={14} strokeWidth={1.8} />}
+            Export
           </button>
         )}
       </div>
@@ -88,12 +112,12 @@ export default function ReportsPage() {
             </label>
             <div className="relative">
               <select
-                value={reportType}
-                onChange={(e) => { setReportType(e.target.value); setGenerated(false); }}
+                value={selectedType}
+                onChange={(e) => { setSelectedType(e.target.value); setActive(null); }}
                 className={cn(
                   "w-full text-sm border border-border rounded-xl px-3 py-2.5 pr-8 bg-white text-foreground",
                   "outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-900/10 appearance-none transition-all",
-                  !reportType && "text-muted-foreground"
+                  !selectedType && "text-muted-foreground"
                 )}
               >
                 <option value="">Select report type</option>
@@ -118,7 +142,7 @@ export default function ReportsPage() {
                 className="w-full text-sm border border-border rounded-xl px-3 py-2.5 pr-8 bg-white text-foreground outline-none focus:border-brand-300 appearance-none transition-all"
               >
                 <option value="">All Parties</option>
-                {MOCK_PARTIES.map((p) => (
+                {(parties ?? []).map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
@@ -181,7 +205,7 @@ export default function ReportsPage() {
             {["Sales Bill with GST", "Purchase Bill With GST", "Expense", "Payment", "Profit & Loss Report", "Sales Outstanding Report"].map((t) => (
               <button
                 key={t}
-                onClick={() => { setReportType(t); }}
+                onClick={() => setSelectedType(t)}
                 className="px-3 py-2 rounded-xl text-[11px] font-semibold border border-border text-foreground hover:bg-brand-50 hover:border-brand-200 hover:text-brand-700 transition-colors text-left"
               >
                 {t}
@@ -189,20 +213,27 @@ export default function ReportsPage() {
             ))}
           </div>
         </div>
+      ) : isLoading ? (
+        <TableSkeleton cols={6} rows={6} />
+      ) : isError ? (
+        <ErrorState
+          message={`Failed to load report${(error as Error)?.message ? `: ${(error as Error).message}` : "."}`}
+          onRetry={() => refetch()}
+        />
       ) : (
         <div>
           {/* Report header strip */}
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">{reportType}</h3>
+              <h3 className="text-sm font-semibold text-foreground">{active.type}</h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                {fromDate} — {toDate}
-                {partyId && ` · ${MOCK_PARTIES.find((p) => p.id === partyId)?.name}`}
-                {` · ${reportData.length} records`}
+                {active.filters.fromDate} — {active.filters.toDate}
+                {selectedPartyName && ` · ${selectedPartyName}`}
+                {data && ` · ${data.rows.length} records`}
               </p>
             </div>
             <button
-              onClick={() => toast.info("Printing report…")}
+              onClick={() => window.print()}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-border text-foreground bg-white hover:bg-secondary transition-colors"
             >
               Print
@@ -210,9 +241,9 @@ export default function ReportsPage() {
           </div>
 
           <ReportTable
-            columns={columns}
-            data={reportData}
-            reportType={reportType}
+            columns={data?.columns ?? []}
+            data={data?.rows ?? []}
+            reportType={active.type}
           />
         </div>
       )}

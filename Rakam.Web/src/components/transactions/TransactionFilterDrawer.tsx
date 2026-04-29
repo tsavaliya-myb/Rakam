@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MOCK_PARTIES } from "@/lib/mock/parties";
+import { usePartiesDropdown } from "@/hooks/api/use-parties";
 import type { TransactionFilterValues } from "@/lib/schemas/transaction.schema";
 
 interface Props {
@@ -22,6 +22,8 @@ const DEFAULT: TransactionFilterValues = {
 };
 
 export function TransactionFilterDrawer({ open, onClose, onApply, defaultValues }: Props) {
+  const { data: parties = [] } = usePartiesDropdown();
+
   const { register, handleSubmit, reset } = useForm<TransactionFilterValues>({
     defaultValues: { ...DEFAULT, ...defaultValues },
   });
@@ -100,7 +102,7 @@ export function TransactionFilterDrawer({ open, onClose, onApply, defaultValues 
               className="w-full text-sm border border-border rounded-xl px-3 py-2.5 bg-white text-foreground outline-none focus:border-brand-300"
             >
               <option value="">All Parties</option>
-              {MOCK_PARTIES.map((p) => (
+              {parties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>

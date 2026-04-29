@@ -5,31 +5,25 @@ import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UNIT_OPTIONS } from "@/config/constants";
 import type { DCFormValues } from "@/lib/schemas/delivery-challan.schema";
-
-const MOCK_PRODUCTS = [
-  { id: "pr1", name: "Cotton Fabric",    itemCode: "CTN-001", hsnCode: "5208", rate: 250, unit: "Mtr" },
-  { id: "pr2", name: "Polyester Thread", itemCode: "PLY-002", hsnCode: "5402", rate: 45,  unit: "KG"  },
-  { id: "pr3", name: "Dye Chemical A",   itemCode: "DYE-003", hsnCode: "3204", rate: 820, unit: "KG"  },
-  { id: "pr4", name: "Packing Bag",      itemCode: "PKG-004", hsnCode: "3923", rate: 12,  unit: "Pcs" },
-  { id: "pr5", name: "Greige Fabric",    itemCode: "GRG-005", hsnCode: "5208", rate: 95,  unit: "Mtr" },
-];
+import { useProductsDropdown } from "@/hooks/api/use-products";
 
 export function DCLineItemsTable() {
   const { register, watch, setValue, formState: { errors } } = useFormContext<DCFormValues>();
   const { fields, append, remove } = useFieldArray<DCFormValues>({ name: "lineItems" });
+  const { data: products = [] } = useProductsDropdown();
 
   function addRow() {
     append({ id: crypto.randomUUID(), productName: "", itemCode: "", hsnCode: "", qty: 1, unit: "Pcs", rate: 0, amount: 0 });
   }
 
   function handleProductSelect(index: number, productId: string) {
-    const p = MOCK_PRODUCTS.find((x) => x.id === productId);
+    const p = products.find((x) => x.id === productId);
     if (!p) return;
     setValue(`lineItems.${index}.productId`, p.id);
     setValue(`lineItems.${index}.productName`, p.name);
     setValue(`lineItems.${index}.itemCode`, p.itemCode);
     setValue(`lineItems.${index}.hsnCode`, p.hsnCode);
-    setValue(`lineItems.${index}.rate`, p.rate);
+    setValue(`lineItems.${index}.rate`, p.rate ?? 0);
     setValue(`lineItems.${index}.unit`, p.unit);
     recalc(index);
   }
@@ -69,7 +63,7 @@ export function DCLineItemsTable() {
                 <td className="px-3 py-2 min-w-[160px]">
                   <select className={cell} onChange={(e) => handleProductSelect(index, e.target.value)} defaultValue="">
                     <option value="" disabled>Select product</option>
-                    {MOCK_PRODUCTS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                   {errors.lineItems?.[index]?.productName && (
                     <p className="text-[10px] text-destructive mt-0.5">Required</p>

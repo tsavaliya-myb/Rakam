@@ -1,32 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  useExpenseCategories,
+  useCreateCategory,
+  useExpenseSuppliers,
+  useCreateSupplier,
+} from "@/hooks/api/use-expenses";
+import type { ExpenseCategory, ExpenseSupplier } from "@/types";
 
 interface ListItem { id: string; name: string; }
-
-const DEFAULT_EXPENSE_CATEGORIES: ListItem[] = [
-  { id: "ec1", name: "Other (Tea)" },
-  { id: "ec2", name: "Service (Machine Repairing)" },
-  { id: "ec3", name: "Raw Material (Material)" },
-  { id: "ec4", name: "Transportation (Rickshaw Charge)" },
-  { id: "ec5", name: "Rent (Office Rent)" },
-  { id: "ec6", name: "Fuel (Petrol)" },
-  { id: "ec7", name: "Bill (Electricity Bill)" },
-  { id: "ec8", name: "Salary (Employee Salary)" },
-];
-
-const DEFAULT_EXPENSE_SUPPLIERS: ListItem[] = [
-  { id: "es1", name: "Raj Electricals" },
-  { id: "es2", name: "City Transport" },
-];
-
-const DEFAULT_EXPENSE_ITEMS: ListItem[] = [
-  { id: "ei1", name: "Office Supplies" },
-  { id: "ei2", name: "Diesel (Litre)" },
-];
 
 const DEFAULT_INCOME_CATEGORIES: ListItem[] = [
   { id: "ic1", name: "Sales Income" },
@@ -40,7 +26,7 @@ const DEFAULT_INCOME_SUPPLIERS: ListItem[] = [
 ];
 
 function ItemList({
-  items, onAdd, onEdit, onDelete, addLabel, accent,
+  items, onAdd, onEdit, onDelete, addLabel, accent, isLoading,
 }: {
   items: ListItem[];
   onAdd: () => void;
@@ -48,44 +34,51 @@ function ItemList({
   onDelete: (item: ListItem) => void;
   addLabel: string;
   accent: string;
+  isLoading?: boolean;
 }) {
   return (
     <div>
       <div className="overflow-hidden rounded-2xl border border-border bg-white">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-border bg-secondary/60">
-              <th className="px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
-              <th className="px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider w-20">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
-                <td className="px-4 py-3 text-sm text-foreground font-medium">{item.name}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => onEdit(item)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-secondary hover:text-foreground transition-colors">
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => onDelete(item)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </td>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 size={20} className="animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-border bg-secondary/60">
+                <th className="px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
+                <th className="px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider w-20">Action</th>
               </tr>
-            ))}
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={2} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  No items yet. Add one below.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
+                  <td className="px-4 py-3 text-sm text-foreground font-medium">{item.name}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => onEdit(item)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-secondary hover:text-foreground transition-colors">
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => onDelete(item)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={2} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    No items yet. Add one below.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
       <button onClick={onAdd}
         className="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors"
@@ -96,8 +89,8 @@ function ItemList({
   );
 }
 
-function AddItemModal({ title, onClose, onSave, accent }: {
-  title: string; onClose: () => void; onSave: (name: string) => void; accent: string;
+function AddItemModal({ title, onClose, onSave, accent, isSaving }: {
+  title: string; onClose: () => void; onSave: (name: string) => void; accent: string; isSaving?: boolean;
 }) {
   const [value, setValue] = useState("");
   return (
@@ -118,9 +111,12 @@ function AddItemModal({ title, onClose, onSave, accent }: {
             className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-border text-foreground hover:bg-secondary transition-colors">
             Cancel
           </button>
-          <button onClick={() => { if (value.trim()) { onSave(value.trim()); onClose(); } }}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
+          <button
+            disabled={isSaving}
+            onClick={() => { if (value.trim()) onSave(value.trim()); }}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             style={{ background: accent }}>
+            {isSaving && <Loader2 size={13} className="animate-spin" />}
             Save
           </button>
         </div>
@@ -131,32 +127,31 @@ function AddItemModal({ title, onClose, onSave, accent }: {
 
 /* ── Expense Settings ── */
 export function ExpenseSettings() {
-  const [tab, setTab] = useState<"categories" | "suppliers" | "items">("categories");
-  const [categories, setCategories] = useState(DEFAULT_EXPENSE_CATEGORIES);
-  const [suppliers, setSuppliers]   = useState(DEFAULT_EXPENSE_SUPPLIERS);
-  const [items, setItems]           = useState(DEFAULT_EXPENSE_ITEMS);
-  const [addModal, setAddModal]     = useState<string | null>(null);
+  const [tab, setTab] = useState<"categories" | "suppliers">("categories");
+  const [addModal, setAddModal] = useState<"categories" | "suppliers" | null>(null);
+
+  const { data: categoriesData, isLoading: catLoading } = useExpenseCategories();
+  const { data: suppliersData,  isLoading: supLoading  } = useExpenseSuppliers();
+  const createCategory = useCreateCategory();
+  const createSupplier = useCreateSupplier();
+
+  const categories: ListItem[] = (categoriesData ?? []).map((c: ExpenseCategory) => ({ id: c.id, name: c.name }));
+  const suppliers:  ListItem[] = (suppliersData  ?? []).map((s: ExpenseSupplier) => ({ id: s.id, name: s.name }));
 
   const TABS = [
-    { id: "categories", label: "Categories" },
-    { id: "suppliers",  label: "Suppliers" },
-    { id: "items",      label: "Expense Items" },
-  ] as const;
+    { id: "categories" as const, label: "Categories" },
+    { id: "suppliers"  as const, label: "Suppliers" },
+  ];
 
-  function handleAdd(type: string, name: string) {
-    const newItem = { id: crypto.randomUUID(), name };
-    if (type === "categories") setCategories((p) => [...p, newItem]);
-    if (type === "suppliers")  setSuppliers((p) => [...p, newItem]);
-    if (type === "items")      setItems((p) => [...p, newItem]);
-    toast.success(`${name} added`);
+  function handleAdd(name: string) {
+    if (addModal === "categories") {
+      createCategory.mutate(name, { onSuccess: () => setAddModal(null) });
+    } else if (addModal === "suppliers") {
+      createSupplier.mutate({ name }, { onSuccess: () => setAddModal(null) });
+    }
   }
 
-  function handleDelete(type: string, item: ListItem) {
-    if (type === "categories") setCategories((p) => p.filter((i) => i.id !== item.id));
-    if (type === "suppliers")  setSuppliers((p) => p.filter((i) => i.id !== item.id));
-    if (type === "items")      setItems((p) => p.filter((i) => i.id !== item.id));
-    toast.error(`${item.name} deleted`);
-  }
+  const isSaving = createCategory.isPending || createSupplier.isPending;
 
   return (
     <div className="space-y-5">
@@ -174,36 +169,35 @@ export function ExpenseSettings() {
       </div>
 
       {tab === "categories" && (
-        <ItemList items={categories} accent="#16532d"
+        <ItemList
+          items={categories}
+          isLoading={catLoading}
+          accent="#16532d"
           addLabel="Add Expense Category"
           onAdd={() => setAddModal("categories")}
           onEdit={(i) => toast.info(`Edit ${i.name} — coming soon`)}
-          onDelete={(i) => handleDelete("categories", i)}
+          onDelete={(i) => toast.info(`Delete ${i.name} — not supported via API`)}
         />
       )}
       {tab === "suppliers" && (
-        <ItemList items={suppliers} accent="#16532d"
+        <ItemList
+          items={suppliers}
+          isLoading={supLoading}
+          accent="#16532d"
           addLabel="Add Supplier"
           onAdd={() => setAddModal("suppliers")}
           onEdit={(i) => toast.info(`Edit ${i.name} — coming soon`)}
-          onDelete={(i) => handleDelete("suppliers", i)}
-        />
-      )}
-      {tab === "items" && (
-        <ItemList items={items} accent="#16532d"
-          addLabel="Add Expense Item"
-          onAdd={() => setAddModal("items")}
-          onEdit={(i) => toast.info(`Edit ${i.name} — coming soon`)}
-          onDelete={(i) => handleDelete("items", i)}
+          onDelete={(i) => toast.info(`Delete ${i.name} — not supported via API`)}
         />
       )}
 
       {addModal && (
         <AddItemModal
-          title={`Add ${addModal === "categories" ? "Expense Category" : addModal === "suppliers" ? "Supplier" : "Expense Item"}`}
+          title={addModal === "categories" ? "Add Expense Category" : "Add Supplier"}
           accent="#16532d"
+          isSaving={isSaving}
           onClose={() => setAddModal(null)}
-          onSave={(name) => handleAdd(addModal, name)}
+          onSave={handleAdd}
         />
       )}
     </div>
@@ -266,7 +260,7 @@ export function IncomeSettings() {
           title={`Add ${addModal === "categories" ? "Income Category" : "Supplier"}`}
           accent="#16532d"
           onClose={() => setAddModal(null)}
-          onSave={(name) => handleAdd(addModal, name)}
+          onSave={(name) => { handleAdd(addModal, name); setAddModal(null); }}
         />
       )}
     </div>

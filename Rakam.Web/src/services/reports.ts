@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/api";
-import type { ReportType, ReportData, ReportFiltersDto } from "@/types";
+import type { ReportData, ReportFiltersDto } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
 
@@ -14,12 +14,12 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const reportsService = {
-  getReport: (firmId: string, type: ReportType, filters?: ReportFiltersDto): Promise<ReportData> =>
+  getReport: (firmId: string, type: string, filters?: ReportFiltersDto): Promise<ReportData> =>
     apiRequest(`/reports${toQuery({ firmId, type, ...filters })}`),
 
   exportReport: async (
     firmId: string,
-    type: ReportType,
+    type: string,
     format: "pdf" | "excel",
     filters?: ReportFiltersDto
   ): Promise<Blob> => {

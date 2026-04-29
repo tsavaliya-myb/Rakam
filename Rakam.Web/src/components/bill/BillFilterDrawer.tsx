@@ -8,6 +8,7 @@ import {
   type BillFilterValues,
 } from "@/lib/schemas/bill.schema";
 import { cn } from "@/lib/utils";
+import { usePartiesDropdown } from "@/hooks/api/use-parties";
 
 interface BillFilterDrawerProps {
   open: boolean;
@@ -16,22 +17,13 @@ interface BillFilterDrawerProps {
   defaultValues?: Partial<BillFilterValues>;
 }
 
-const MOCK_PARTIES = [
-  { id: "p1", name: "Mehta Co." },
-  { id: "p2", name: "Patel Enterprises" },
-  { id: "p3", name: "Sharma Traders" },
-  { id: "p4", name: "Joshi Limited" },
-  { id: "p5", name: "Gupta & Co." },
-  { id: "p6", name: "Desai Manufacturing" },
-  { id: "p7", name: "Reddy Brothers" },
-];
-
 export function BillFilterDrawer({
   open,
   onClose,
   onApply,
   defaultValues,
 }: BillFilterDrawerProps) {
+  const { data: parties = [] } = usePartiesDropdown();
   const { register, handleSubmit, reset } = useForm<BillFilterValues>({
     resolver: zodResolver(billFilterSchema),
     defaultValues: {
@@ -142,7 +134,7 @@ export function BillFilterDrawer({
               className="w-full px-3 py-2 text-sm rounded-xl border border-border bg-secondary text-foreground outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-900/10 transition-all"
             >
               <option value="">All Parties</option>
-              {MOCK_PARTIES.map((p) => (
+              {parties.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>

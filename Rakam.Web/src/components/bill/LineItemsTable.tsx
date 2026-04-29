@@ -5,13 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UNIT_OPTIONS } from "@/config/constants";
 import type { BillFormValues } from "@/lib/schemas/bill.schema";
-
-const MOCK_PRODUCTS = [
-  { id: "pr1", name: "Cotton Fabric", itemCode: "CTN-001", hsnCode: "5208", rate: 250, unit: "Mtr" },
-  { id: "pr2", name: "Polyester Thread", itemCode: "PLY-002", hsnCode: "5402", rate: 45, unit: "KG" },
-  { id: "pr3", name: "Dye Chemical A", itemCode: "DYE-003", hsnCode: "3204", rate: 820, unit: "KG" },
-  { id: "pr4", name: "Packing Bag", itemCode: "PKG-004", hsnCode: "3923", rate: 12, unit: "Pcs" },
-];
+import { useProductsDropdown } from "@/hooks/api/use-products";
 
 interface LineItemsTableProps {
   applyGst: boolean;
@@ -28,6 +22,8 @@ export function LineItemsTable({ applyGst }: LineItemsTableProps) {
   const { fields, append, remove } = useFieldArray<BillFormValues>({
     name: "lineItems",
   });
+
+  const { data: products = [] } = useProductsDropdown();
 
   function addRow() {
     append({
@@ -58,13 +54,13 @@ export function LineItemsTable({ applyGst }: LineItemsTableProps) {
   }
 
   function handleProductSelect(index: number, productId: string) {
-    const product = MOCK_PRODUCTS.find((p) => p.id === productId);
+    const product = products.find((p) => p.id === productId);
     if (!product) return;
     setValue(`lineItems.${index}.productId`, product.id);
     setValue(`lineItems.${index}.productName`, product.name);
     setValue(`lineItems.${index}.itemCode`, product.itemCode);
     setValue(`lineItems.${index}.hsnCode`, product.hsnCode);
-    setValue(`lineItems.${index}.rate`, product.rate);
+    setValue(`lineItems.${index}.rate`, product.rate ?? 0);
     setValue(`lineItems.${index}.unit`, product.unit);
     recalcAmount(index);
   }
@@ -125,7 +121,7 @@ export function LineItemsTable({ applyGst }: LineItemsTableProps) {
                     defaultValue=""
                   >
                     <option value="" disabled>Select product</option>
-                    {MOCK_PRODUCTS.map((p) => (
+                    {products.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>

@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Plus, Download, Filter, Search, Loader2 } from "lucide-react";
+import { Plus, Download, Filter, Search } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { ErrorState } from "@/components/ui/error-state";
+import { useRouter } from "next/navigation";
 import { PurchaseBillTable } from "@/components/purchase-bill/PurchaseBillTable";
 import { PurchaseBillFilterDrawer } from "@/components/purchase-bill/PurchaseBillFilterDrawer";
 import { PurchasePaymentModal } from "@/components/purchase-bill/PurchasePaymentModal";
@@ -30,6 +33,7 @@ export default function PurchaseBillListPage() {
   const [activeFilters, setActiveFilters]       = useState<Partial<PurchaseBillFilterValues>>({});
   const [paymentBill, setPaymentBill]           = useState<PurchaseBill | null>(null);
   const [filterActive, setFilterActive]         = useState(false);
+  const router = useRouter();
 
   const apiFilters = {
     status: activeFilters.status && activeFilters.status !== "ALL"
@@ -38,7 +42,7 @@ export default function PurchaseBillListPage() {
     partyId: activeFilters.partyId || undefined,
   };
 
-  const { data, isLoading, isError } = usePurchaseBills(apiFilters);
+  const { data, isLoading, isError, refetch } = usePurchaseBills(apiFilters);
   const deleteBill    = useDeletePurchaseBill();
   const recordPayment = useRecordPurchasePayment();
 
@@ -183,19 +187,15 @@ export default function PurchaseBillListPage() {
 
       {/* ── Table ── */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={28} className="animate-spin text-muted-foreground" />
-        </div>
+        <TableSkeleton headers={["Date", "Bill No.", "Party", "Type", "Total", "Pending", "Status", "Action"]} />
       ) : isError ? (
-        <div className="bg-white rounded-2xl border border-border flex items-center justify-center py-20">
-          <p className="text-sm text-destructive">Failed to load purchase bills.</p>
-        </div>
+        <ErrorState message="Failed to load purchase bills." onRetry={() => refetch()} />
       ) : (
         <PurchaseBillTable
           data={filteredBills}
           onRecordPayment={(bill) => setPaymentBill(bill)}
           onView={(bill) => toast.info(`Viewing ${bill.billNo}`)}
-          onEdit={(bill) => toast.info(`Edit ${bill.billNo} — coming soon`)}
+          onEdit={(bill) => router.push(`/purchase-bill/${bill.id}/edit`)}
           onDelete={(bill) => deleteBill.mutate(bill.id)}
           onPrint={(bill) => toast.info(`Printing ${bill.billNo}…`)}
           onDownload={(bill) => toast.info(`Downloading ${bill.billNo}…`)}

@@ -1,77 +1,58 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Plus, Download, Filter, ArrowLeftRight, TrendingUp, TrendingDown } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { TransactionListTable } from "@/components/transactions/TransactionListTable";
 import { TransactionFilterDrawer } from "@/components/transactions/TransactionFilterDrawer";
 import { AddPaymentModal } from "@/components/transactions/AddPaymentModal";
-import { MOCK_TRANSACTIONS } from "@/lib/mock/transactions";
-import { MOCK_PARTIES } from "@/lib/mock/parties";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { Transaction } from "@/types";
-import type { AddPaymentFormValues, TransactionFilterValues } from "@/lib/schemas/transaction.schema";
+import type { TransactionFilterValues } from "@/lib/schemas/transaction.schema";
 import { toast } from "sonner";
+import { useTransactions, useDeleteTransaction } from "@/hooks/api/use-transactions";
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<Partial<TransactionFilterValues>>({});
-  const [filterActive, setFilterActive] = useState(false);
-  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [activeFilters, setActiveFilters]       = useState<Partial<TransactionFilterValues>>({});
+  const [filterActive, setFilterActive]         = useState(false);
+  const [addModalOpen, setAddModalOpen]         = useState(false);
 
-  const filteredTransactions = useMemo(() => {
-    let list = [...transactions];
-    if (activeFilters.transactionType && activeFilters.transactionType !== "ALL") {
-      list = list.filter((t) => t.transactionType === activeFilters.transactionType);
-    }
-    if (activeFilters.mode && activeFilters.mode !== "ALL") {
-      list = list.filter((t) => t.mode === activeFilters.mode);
-    }
-    if (activeFilters.partyId) {
-      list = list.filter((t) => t.partyId === activeFilters.partyId);
-    }
-    if (activeFilters.fromDate) list = list.filter((t) => t.date >= activeFilters.fromDate!);
-    if (activeFilters.toDate)   list = list.filter((t) => t.date <= activeFilters.toDate!);
-    return list;
-  }, [transactions, activeFilters]);
+  const apiFilters = {
+    transactionType: activeFilters.transactionType && activeFilters.transactionType !== "ALL"
+      ? (activeFilters.transactionType as "CREDIT" | "DEBIT")
+      : undefined,
+    mode: activeFilters.mode && activeFilters.mode !== "ALL"
+      ? (activeFilters.mode as "CASH" | "CHEQUE" | "ONLINE" | "OTHER")
+      : undefined,
+    partyId: activeFilters.partyId || undefined,
+    fromDate: activeFilters.fromDate || undefined,
+    toDate: activeFilters.toDate || undefined,
+  };
 
-  const totalCredit = filteredTransactions
+  const { data, isLoading, isError, refetch } = useTransactions(apiFilters);
+  const deleteTransaction = useDeleteTransaction();
+
+  const transactions = data?.data ?? [];
+
+  const totalCredit = transactions
     .filter((t) => t.transactionType === "CREDIT")
     .reduce((s, t) => s + t.amount, 0);
-  const totalDebit = filteredTransactions
+  const totalDebit = transactions
     .filter((t) => t.transactionType === "DEBIT")
     .reduce((s, t) => s + t.amount, 0);
   const netBalance = totalCredit - totalDebit;
 
   function handleApplyFilters(filters: TransactionFilterValues) {
     setActiveFilters(filters);
-    const active =
-      (filters.transactionType && filters.transactionType !== "ALL") ||
-      (filters.mode && filters.mode !== "ALL") ||
+    setFilterActive(
+      (!!filters.transactionType && filters.transactionType !== "ALL") ||
+      (!!filters.mode && filters.mode !== "ALL") ||
       !!filters.partyId ||
       !!filters.fromDate ||
-      !!filters.toDate;
-    setFilterActive(!!active);
-  }
-
-  function handleAdd(data: AddPaymentFormValues) {
-    const newTxn = {
-      id: `txn${Date.now()}`,
-      date: data.paymentDate,
-      refNumber: `TXN-${String(transactions.length + 1).padStart(3, "0")}`,
-      partyId: data.partyId || undefined,
-      partyName: data.partyId
-        ? (MOCK_PARTIES.find((p) => p.id === data.partyId)?.name ?? "")
-        : undefined,
-      amount: data.paymentAmount,
-      transactionType: data.transactionFor === "SALES" ? "CREDIT" : "DEBIT",
-      transactionFor: data.transactionFor === "SALES" ? "Sale/Manual" : "Purchase/Manual",
-      mode: data.paymentMode,
-      note: data.notes,
-    };
-    setTransactions((prev) => [newTxn as Transaction, ...prev]);
-    setAddModalOpen(false);
-    toast.success("Payment recorded successfully");
+      !!filters.toDate
+    );
   }
 
   return (
@@ -151,28 +132,23 @@ export default function TransactionsPage() {
         </button>
       </div>
 
-      {/* ── Table ── */}
-      {transactions.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-border flex flex-col items-center justify-center py-24 gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-brand-50 flex items-center justify-center">
-            <ArrowLeftRight size={28} strokeWidth={1.5} className="text-brand-400" />
-          </div>
-          <p className="text-sm text-muted-foreground font-medium">No transactions recorded yet.</p>
-          <button
-            onClick={() => setAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors"
-          >
-            <Plus size={15} /> Add New Payment
-          </button>
-        </div>
+      {/* ── Table / Loading / Empty ── */}
+      {isLoading ? (
+        <TableSkeleton cols={6} />
+      ) : isError ? (
+        <ErrorState message="Failed to load transactions." onRetry={() => refetch()} />
+      ) : transactions.length === 0 ? (
+        <EmptyState
+          icon={<ArrowLeftRight size={28} strokeWidth={1.5} />}
+          label="No transactions recorded yet."
+          addLabel="Add New Payment"
+          onAdd={() => setAddModalOpen(true)}
+        />
       ) : (
         <TransactionListTable
-          data={filteredTransactions}
+          data={transactions}
           onEdit={(t) => toast.info(`Edit ${t.refNumber} — coming soon`)}
-          onDelete={(t) => {
-            setTransactions((prev) => prev.filter((x) => x.id !== t.id));
-            toast.error("Transaction deleted");
-          }}
+          onDelete={(t) => deleteTransaction.mutate(t.id)}
           onPrint={(t) => toast.info(`Printing ${t.refNumber}…`)}
           onDownload={(t) => toast.info(`Downloading ${t.refNumber}…`)}
         />
@@ -188,10 +164,7 @@ export default function TransactionsPage() {
 
       {/* ── Add Payment Modal ── */}
       {addModalOpen && (
-        <AddPaymentModal
-          onClose={() => setAddModalOpen(false)}
-          onSubmit={handleAdd}
-        />
+        <AddPaymentModal onClose={() => setAddModalOpen(false)} />
       )}
     </div>
   );

@@ -3,11 +3,11 @@
 import { useForm } from "react-hook-form";
 import { X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MOCK_EXPENSE_CATEGORIES, MOCK_EXPENSE_SUPPLIERS } from "@/lib/mock/expenses";
+import { useExpenseCategories, useExpenseSuppliers } from "@/hooks/api/use-expenses";
 
 export interface ExpenseFilterValues {
-  category: string;
-  supplierName: string;
+  categoryId: string;
+  supplierId: string;
   mode: "ALL" | "AMOUNT" | "ITEM";
   fromDate: string;
   toDate: string;
@@ -21,14 +21,17 @@ interface Props {
 }
 
 const DEFAULT: ExpenseFilterValues = {
-  category: "",
-  supplierName: "",
+  categoryId: "",
+  supplierId: "",
   mode: "ALL",
   fromDate: "",
   toDate: "",
 };
 
 export function ExpenseFilterDrawer({ open, onClose, onApply, defaultValues }: Props) {
+  const { data: categories = [] } = useExpenseCategories();
+  const { data: suppliers = [] }  = useExpenseSuppliers();
+
   const { register, handleSubmit, reset } = useForm<ExpenseFilterValues>({
     defaultValues: { ...DEFAULT, ...defaultValues },
   });
@@ -77,12 +80,12 @@ export function ExpenseFilterDrawer({ open, onClose, onApply, defaultValues }: P
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground">Category</label>
             <select
-              {...register("category")}
+              {...register("categoryId")}
               className="w-full text-sm border border-border rounded-xl px-3 py-2.5 bg-white text-foreground outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-900/10"
             >
               <option value="">All Categories</option>
-              {MOCK_EXPENSE_CATEGORIES.map((c) => (
-                <option key={c.id} value={c.name}>{c.name}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
           </div>
@@ -91,12 +94,12 @@ export function ExpenseFilterDrawer({ open, onClose, onApply, defaultValues }: P
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground">Supplier</label>
             <select
-              {...register("supplierName")}
+              {...register("supplierId")}
               className="w-full text-sm border border-border rounded-xl px-3 py-2.5 bg-white text-foreground outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-900/10"
             >
               <option value="">All Suppliers</option>
-              {MOCK_EXPENSE_SUPPLIERS.map((s) => (
-                <option key={s.id} value={s.name}>{s.name}</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           </div>

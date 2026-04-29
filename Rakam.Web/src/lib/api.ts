@@ -83,7 +83,7 @@ export const authApi = {
     }),
 
   verifyOtp: (reqId: string, otp: string) =>
-    rawRequest<{ accessToken: string; refreshToken: string }>("/auth/otp/verify", {
+    rawRequest<{ accessToken: string; refreshToken: string; user: import("@/types").AuthUser }>("/auth/otp/verify", {
       method: "POST",
       body: JSON.stringify({ reqId, otp }),
     }),
