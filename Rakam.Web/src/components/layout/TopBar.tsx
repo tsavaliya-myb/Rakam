@@ -4,15 +4,50 @@ import { useState, useRef, useEffect } from "react";
 import {
   Bell, Globe, ChevronDown, LogOut, LayoutGrid, Search, FileText, Package, Users,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/store/useAppStore";
+import { useAuthStore } from "@/store/useAuthStore";
+import { authService } from "@/services/auth";
 import { useGlobalSearch } from "@/hooks/api/use-dashboard";
+import { useProfile } from "@/hooks/api/use-settings";
 import { cn } from "@/lib/utils";
 
 const FY_OPTIONS = ["2024-25", "2025-26", "2026-27", "2027-28"];
 
+function getInitials(firstName?: string | null, lastName?: string | null, mobile?: string): string {
+  if (firstName && lastName) return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  if (firstName) return firstName.slice(0, 2).toUpperCase();
+  if (mobile) return mobile.slice(-2);
+  return "Me";
+}
+
 export function TopBar() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const { financialYear, setFinancialYear } = useAppStore();
+  const { refreshToken, clearAuth } = useAuthStore();
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const { data: profile } = useProfile();
+
+  const initials = getInitials(profile?.firstName, profile?.lastName, profile?.mobile);
+  const displayName = profile?.firstName || profile?.lastName
+    ? `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim()
+    : profile?.mobile ?? "";
+  const displayEmail = profile?.email ?? profile?.mobile ?? "";
+
+  async function handleLogout() {
+    try {
+      if (refreshToken) await authService.logout(refreshToken);
+    } catch {
+      // proceed with local logout even if API call fails
+    } finally {
+      clearAuth();
+      queryClient.clear();
+      router.replace("/login");
+    }
+  }
   const [fyOpen, setFyOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -221,11 +256,11 @@ export function TopBar() {
             className="flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-xl border border-border hover:bg-secondary transition-colors"
           >
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-900 to-brand-500 flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xs font-bold select-none">AS</span>
+              <span className="text-white text-xs font-bold select-none">{initials}</span>
             </div>
             <div className="hidden md:block text-left">
               <p className="text-xs font-semibold text-foreground leading-tight">
-                Arun Sharma
+                {displayName || "My Account"}
               </p>
               <p className="text-[10px] text-muted-foreground">Admin</p>
             </div>
@@ -233,12 +268,15 @@ export function TopBar() {
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-xl border border-border py-2 z-50 animate-fade-in">
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-border py-2 z-50 animate-fade-in">
               <div className="px-4 py-2 border-b border-border mb-1">
-                <p className="text-xs font-semibold text-foreground">Arun Sharma</p>
-                <p className="text-[10px] text-muted-foreground">arun@shreeji.com</p>
+                <p className="text-xs font-semibold text-foreground truncate">{displayName || "My Account"}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{displayEmail}</p>
               </div>
-              <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/5 transition-colors">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/5 transition-colors"
+              >
                 <LogOut size={14} />
                 Logout
               </button>

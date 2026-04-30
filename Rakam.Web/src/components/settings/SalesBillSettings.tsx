@@ -9,7 +9,7 @@ import {
   type SalesBillSettingsValues,
 } from "@/lib/schemas/settings.schema";
 import { cn } from "@/lib/utils";
-import { useSettings, useUpdateSettings } from "@/hooks/api/use-settings";
+import { useSalesBillSettings, useSaveSalesBillSettings } from "@/hooks/api/use-settings";
 
 const inp = cn(
   "w-full px-3 py-2 text-sm rounded-xl border border-border bg-secondary text-foreground outline-none",
@@ -37,9 +37,16 @@ function ToggleRow({
   );
 }
 
+const PRINT_TYPE_TO_API: Record<string, string> = {
+  Original: "ORIGINAL", Duplicate: "DUPLICATE", Triplicate: "TRIPLICATE",
+};
+const API_TO_PRINT_TYPE: Record<string, string> = {
+  ORIGINAL: "Original", DUPLICATE: "Duplicate", TRIPLICATE: "Triplicate",
+};
+
 export function SalesBillSettings() {
-  const { data: settings, isLoading } = useSettings();
-  const updateSettings = useUpdateSettings();
+  const { data: settings, isLoading } = useSalesBillSettings();
+  const saveSettings = useSaveSalesBillSettings();
 
   const { register, control, handleSubmit, reset, formState: { isSubmitting } } =
     useForm<SalesBillSettingsValues>({
@@ -64,35 +71,55 @@ export function SalesBillSettings() {
     });
 
   useEffect(() => {
-    if (settings) {
-      reset((prev) => ({
-        ...prev,
-        billPrefix: settings.invoicePrefix ?? "",
-        termsAndConditions: settings.termsAndConditions ?? "",
-      }));
-    }
+    if (!settings) return;
+    const discountScope =
+      settings.discountScope === "ITEM" && settings.gstScope === "ITEM" ? "item_item" :
+      settings.discountScope === "ITEM" ? "item_bill" : "bill_bill";
+
+    reset({
+      displayDueDetails: settings.showDueDetailsInInvoice,
+      displayGstInJobChallan: settings.showGstInJobChallan,
+      defaultPrintType: (API_TO_PRINT_TYPE[settings.defaultPrintType] ?? "Original") as "Original" | "Duplicate" | "Triplicate",
+      displayChallanOption: settings.showChallanSection,
+      billNoLabel: (settings.billNoLabel ?? "Bill No.") as "Bill No." | "Invoice No." | "Job Ch No.",
+      displayAddLossProduct: settings.showLossProductOption,
+      displayDeliveryToSalesBill: settings.showDeliveryToSalesOption,
+      displayWithHoldingTax: settings.showWithholdingTax,
+      enableDirectPayment: settings.enableDirectPayment,
+      discountScope,
+      billPrefix: settings.billPrefix ?? "",
+      termsAndConditions: settings.termsAndConditions ?? "",
+      titleJobChallan: settings.jobChallanTitle ?? "",
+      titleTaxInvoice: settings.taxInvoiceTitle ?? "",
+      customHeading: settings.pdfCustomHeading ?? "",
+    });
   }, [settings, reset]);
 
   function onSubmit(data: SalesBillSettingsValues) {
-    updateSettings.mutate({
-      section: "sales-bill",
-      dto: {
-        invoicePrefix: data.billPrefix,
-        termsAndConditions: data.termsAndConditions,
-        displayDueDetails: data.displayDueDetails,
-        displayGstInJobChallan: data.displayGstInJobChallan,
-        defaultPrintType: data.defaultPrintType,
-        displayChallanOption: data.displayChallanOption,
-        billNoLabel: data.billNoLabel,
-        displayAddLossProduct: data.displayAddLossProduct,
-        displayDeliveryToSalesBill: data.displayDeliveryToSalesBill,
-        displayWithHoldingTax: data.displayWithHoldingTax,
-        enableDirectPayment: data.enableDirectPayment,
-        discountScope: data.discountScope,
-        titleJobChallan: data.titleJobChallan,
-        titleTaxInvoice: data.titleTaxInvoice,
-        customHeading: data.customHeading,
-      },
+    const scopeMap = {
+      bill_bill: { discountScope: "BILL", gstScope: "BILL" },
+      item_bill: { discountScope: "ITEM", gstScope: "BILL" },
+      item_item: { discountScope: "ITEM", gstScope: "ITEM" },
+    };
+    const scopes = scopeMap[data.discountScope];
+
+    saveSettings.mutate({
+      showDueDetailsInInvoice: data.displayDueDetails,
+      showGstInJobChallan: data.displayGstInJobChallan,
+      defaultPrintType: PRINT_TYPE_TO_API[data.defaultPrintType],
+      showChallanSection: data.displayChallanOption,
+      billNoLabel: data.billNoLabel,
+      showLossProductOption: data.displayAddLossProduct,
+      showDeliveryToSalesOption: data.displayDeliveryToSalesBill,
+      showWithholdingTax: data.displayWithHoldingTax,
+      enableDirectPayment: data.enableDirectPayment,
+      discountScope: scopes.discountScope,
+      gstScope: scopes.gstScope,
+      billPrefix: data.billPrefix ?? null,
+      termsAndConditions: data.termsAndConditions ?? null,
+      jobChallanTitle: data.titleJobChallan ?? null,
+      taxInvoiceTitle: data.titleTaxInvoice ?? null,
+      pdfCustomHeading: data.customHeading ?? null,
     });
   }
 
@@ -202,10 +229,10 @@ export function SalesBillSettings() {
         </div>
       </div>
 
-      <button type="submit" disabled={isSubmitting || updateSettings.isPending}
+      <button type="submit" disabled={isSubmitting || saveSettings.isPending}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors disabled:opacity-60">
-        {updateSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-        {updateSettings.isPending ? "Saving…" : "Save"}
+        {saveSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        {saveSettings.isPending ? "Saving…" : "Save"}
       </button>
     </form>
   );

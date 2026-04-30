@@ -15,11 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OtpInput } from "@/components/auth/OtpInput";
+import { SetupFirmStep } from "@/components/auth/SetupFirmStep";
 import { cn } from "@/lib/utils";
 
 const RESEND_DELAY = 30;
 
-type Step = "mobile" | "otp";
+type Step = "mobile" | "otp" | "firm";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -80,10 +81,14 @@ export default function LoginPage() {
     setOtpError("");
     setIsVerifying(true);
     try {
-      const { user, ...tokens } = await authService.verifyOtp(reqId, otp);
+      const { user, isNewUser, ...tokens } = await authService.verifyOtp(reqId, otp);
       setAuth(tokens, user);
-      toast.success("Logged in successfully");
-      router.replace(redirectTo);
+      if (isNewUser) {
+        setStep("firm");
+      } else {
+        toast.success("Logged in successfully");
+        router.replace(redirectTo);
+      }
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Invalid or expired OTP";
       setOtpError(msg);
@@ -133,36 +138,43 @@ export default function LoginPage() {
 
         {/* ── Step indicator ── */}
         <div className="mb-6 flex items-center gap-2">
-          {(["mobile", "otp"] as Step[]).map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-colors",
-                  step === s || (s === "mobile" && step === "otp")
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
-                )}
-              >
-                {s === "mobile" && step === "otp" ? "✓" : i + 1}
-              </div>
-              <span
-                className={cn(
-                  "text-xs font-medium",
-                  step === s ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                {s === "mobile" ? "Mobile" : "OTP"}
-              </span>
-              {i === 0 && (
+          {(["mobile", "otp", "firm"] as Step[]).map((s, i) => {
+            const isDone =
+              (s === "mobile" && (step === "otp" || step === "firm")) ||
+              (s === "otp" && step === "firm");
+            const isActive = step === s;
+            const labels: Record<Step, string> = { mobile: "Mobile", otp: "OTP", firm: "Firm" };
+            return (
+              <div key={s} className="flex items-center gap-2">
                 <div
                   className={cn(
-                    "mx-1 h-px w-8 transition-colors",
-                    step === "otp" ? "bg-primary" : "bg-border"
+                    "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-colors",
+                    isActive || isDone
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
                   )}
-                />
-              )}
-            </div>
-          ))}
+                >
+                  {isDone ? "✓" : i + 1}
+                </div>
+                <span
+                  className={cn(
+                    "text-xs font-medium",
+                    isActive ? "text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  {labels[s]}
+                </span>
+                {i < 2 && (
+                  <div
+                    className={cn(
+                      "mx-1 h-px w-8 transition-colors",
+                      isDone ? "bg-primary" : "bg-border"
+                    )}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* ════════════════════════════════════════
@@ -227,6 +239,19 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
+        )}
+
+        {/* ════════════════════════════════════════
+            Step 3 — Firm setup (new users only)
+            ════════════════════════════════════════ */}
+        {step === "firm" && (
+          <SetupFirmStep
+            mobile={getValues("mobile")}
+            onComplete={() => {
+              toast.success("Welcome to Rakam!");
+              router.replace(redirectTo);
+            }}
+          />
         )}
 
         {/* ════════════════════════════════════════

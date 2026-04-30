@@ -658,17 +658,81 @@ export interface ReportFiltersDto extends QueryFilters {
 }
 
 // ── Settings ──────────────────────────────────
-export interface FirmSettings {
+export interface UserProfile {
+  id: string;
+  mobile: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  profilePhotoKey: string | null;
+  businessTypes: string[];
+}
+
+export interface SalesBillSettingsResponse {
   firmId: string;
-  defaultDueDays?: number;
-  defaultBillType?: BillType;
-  invoicePrefix?: string;
-  challanPrefix?: string;
-  termsAndConditions?: string;
-  autoCalculateGst: boolean;
-  showHsn: boolean;
-  showItemCode: boolean;
-  updatedAt: string;
+  showDueDetailsInInvoice: boolean;
+  showGstInJobChallan: boolean;
+  defaultPrintType: "ORIGINAL" | "DUPLICATE" | "TRIPLICATE";
+  showChallanSection: boolean;
+  billNoLabel: string;
+  showLossProductOption: boolean;
+  showDeliveryToSalesOption: boolean;
+  showWithholdingTax: boolean;
+  enableDirectPayment: boolean;
+  discountScope: "BILL" | "ITEM";
+  gstScope: "BILL" | "ITEM";
+  billPrefix: string | null;
+  termsAndConditions: string | null;
+  jobChallanTitle: string | null;
+  taxInvoiceTitle: string | null;
+  pdfCustomHeading: string | null;
+  pdfTemplate: "STANDARD" | "MODERN";
+}
+
+export interface PurchaseBillSettingsResponse {
+  firmId: string;
+  showWithholdingTax: boolean;
+  pdfTemplate: "STANDARD" | "MODERN";
+}
+
+export interface DCSettingsResponse {
+  firmId: string;
+  showRate: boolean;
+  showGstNo: boolean;
+  defaultPrintType: "ORIGINAL" | "DUPLICATE" | "TRIPLICATE";
+  showChallanSection: boolean;
+  termsAndConditions: string | null;
+  pdfCustomHeading: string | null;
+  pdfTemplate: "STANDARD" | "MODERN";
+}
+
+export interface OtherSettingsResponse {
+  firmId: string;
+  enableInventory: boolean;
+  allowSalesWithoutStock: boolean;
+  enableShortcuts: boolean;
+  enableDecimalValues: boolean;
+  enablePartyWiseProductRate: boolean;
+  enableShipmentAddress: boolean;
+}
+
+export interface GspCredentials {
+  firmId: string;
+  gspUsername: string;
+  registeredAt: string;
+}
+
+export interface IncomeCategory {
+  id: string;
+  firmId: string;
+  name: string;
+  isDefault: boolean;
+}
+
+export interface IncomeSupplier {
+  id: string;
+  firmId: string;
+  name: string;
 }
 
 export type UpdateSettingsDto = Record<string, unknown>;

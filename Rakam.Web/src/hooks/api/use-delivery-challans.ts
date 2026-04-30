@@ -11,7 +11,7 @@ export function useDeliveryChallans(filters?: ListDCDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.deliveryChallans(firmId!, filters),
-    queryFn: () => deliveryChallansService.getDeliveryChallans(firmId!, filters),
+    queryFn: () => deliveryChallansService.getDeliveryChallans(filters),
     enabled: !!firmId,
     placeholderData: (prev) => prev,
   });
@@ -29,7 +29,7 @@ export function useCreateDC() {
   const qc = useQueryClient();
   const firmId = useAppStore((s) => s.activeFirmId);
   return useMutation({
-    mutationFn: (dto: CreateDCDto) => deliveryChallansService.createDeliveryChallan(firmId!, dto),
+    mutationFn: (dto: CreateDCDto) => deliveryChallansService.createDeliveryChallan(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.deliveryChallans(firmId!) });
       toast.success("Delivery challan created");

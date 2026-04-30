@@ -20,17 +20,17 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const partiesService = {
-  getParties: (firmId: string, filters?: ListPartiesDto): Promise<ApiPaginatedResponse<Party>> =>
-    apiRequest(`/parties${toQuery({ firmId, ...filters })}`),
+  getParties: (filters?: ListPartiesDto): Promise<ApiPaginatedResponse<Party>> =>
+    apiRequest(`/parties${toQuery(filters as Record<string, unknown>)}`),
 
-  getPartiesDropdown: (firmId: string): Promise<PartyDropdownItem[]> =>
-    apiRequest(`/parties/dropdown${toQuery({ firmId })}`),
+  getPartiesDropdown: (): Promise<PartyDropdownItem[]> =>
+    apiRequest(`/parties/dropdown`),
 
   getParty: (id: string): Promise<Party> =>
     apiRequest(`/parties/${id}`),
 
-  createParty: (firmId: string, dto: CreatePartyDto): Promise<Party> =>
-    apiRequest(`/parties${toQuery({ firmId })}`, {
+  createParty: (dto: CreatePartyDto): Promise<Party> =>
+    apiRequest(`/parties`, {
       method: "POST",
       body: JSON.stringify(dto),
     }),

@@ -14,11 +14,10 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const reportsService = {
-  getReport: (firmId: string, type: string, filters?: ReportFiltersDto): Promise<ReportData> =>
-    apiRequest(`/reports${toQuery({ firmId, type, ...filters })}`),
+  getReport: (type: string, filters?: ReportFiltersDto): Promise<ReportData> =>
+    apiRequest(`/reports${toQuery({ type, ...filters })}`),
 
   exportReport: async (
-    firmId: string,
     type: string,
     format: "pdf" | "excel",
     filters?: ReportFiltersDto
@@ -28,7 +27,7 @@ export const reportsService = {
     const { useAppStore } = await import("@/store/useAppStore");
     const { activeFirmId } = useAppStore.getState();
 
-    const qs = toQuery({ firmId, type, format, ...filters });
+    const qs = toQuery({ type, format, ...filters });
     const res = await fetch(`${BASE_URL}/reports/export${qs}`, {
       headers: {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),

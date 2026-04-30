@@ -7,9 +7,17 @@ import { Save, Rocket, AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSubscriptionStore } from "@/store/useSubscriptionStore";
 import type { PlanType } from "@/types";
 import { otherSettingsSchema, type OtherSettingsValues } from "@/lib/schemas/settings.schema";
-import { useUpdateSettings } from "@/hooks/api/use-settings";
+import {
+  useOtherSettings,
+  useSaveOtherSettings,
+  useSalesBillSettings,
+  useSaveSalesBillSettings,
+  useDCSettings,
+  useSaveDCSettings,
+  useGspCredentials,
+  useSaveGspCredentials,
+} from "@/hooks/api/use-settings";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 const inp = cn(
   "w-full px-3 py-2 text-sm rounded-xl border border-border bg-secondary text-foreground outline-none",
@@ -37,23 +45,49 @@ function ToggleRow({ label, description, checked, onChange }: {
 
 /* ── PDF Template ── */
 export function PDFTemplateSettings() {
-  const [salesTemplate, setSalesTemplate]   = useState<"Standard" | "Modern">("Standard");
-  const [dcTemplate, setDcTemplate]         = useState<"Standard" | "Modern">("Standard");
+  const { data: salesSettings, isLoading: salesLoading } = useSalesBillSettings();
+  const { data: dcSettings, isLoading: dcLoading } = useDCSettings();
+  const saveSales = useSaveSalesBillSettings();
+  const saveDC = useSaveDCSettings();
+
+  const salesTemplate = salesSettings?.pdfTemplate === "MODERN" ? "Modern" : "Standard";
+  const dcTemplate = dcSettings?.pdfTemplate === "MODERN" ? "Modern" : "Standard";
+
+  if (salesLoading || dcLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
       {[
-        { label: "Sales Bill PDF Template",         value: salesTemplate, onChange: setSalesTemplate },
-        { label: "Delivery Challan PDF Template",   value: dcTemplate,   onChange: setDcTemplate },
+        {
+          label: "Sales Bill PDF Template",
+          value: salesTemplate,
+          onChange: (t: "Standard" | "Modern") =>
+            saveSales.mutate({ pdfTemplate: t === "Modern" ? "MODERN" : "STANDARD" }),
+          isPending: saveSales.isPending,
+        },
+        {
+          label: "Delivery Challan PDF Template",
+          value: dcTemplate,
+          onChange: (t: "Standard" | "Modern") =>
+            saveDC.mutate({ pdfTemplate: t === "Modern" ? "MODERN" : "STANDARD" }),
+          isPending: saveDC.isPending,
+        },
       ].map((item) => (
         <div key={item.label} className="bg-white rounded-2xl border border-border p-5">
           <p className="text-xs font-semibold text-foreground mb-3">{item.label}</p>
           <div className="flex gap-3">
             {(["Standard", "Modern"] as const).map((t) => (
               <button key={t} type="button"
+                disabled={item.isPending}
                 onClick={() => item.onChange(t)}
                 className={cn(
-                  "flex-1 py-10 rounded-2xl text-sm font-semibold border-2 transition-all",
+                  "flex-1 py-10 rounded-2xl text-sm font-semibold border-2 transition-all disabled:opacity-60",
                   item.value === t
                     ? "border-brand-900 bg-brand-50 text-brand-900"
                     : "border-border bg-secondary text-muted-foreground hover:border-brand-300"
@@ -75,8 +109,19 @@ export function PDFTemplateSettings() {
 
 /* ── Inventory Settings ── */
 export function InventorySettings() {
-  const [enabled, setEnabled]           = useState(false);
-  const [allowNegative, setAllowNegative] = useState(false);
+  const { data: settings, isLoading } = useOtherSettings();
+  const saveSettings = useSaveOtherSettings();
+
+  const enabled = settings?.enableInventory ?? false;
+  const allowNegative = settings?.allowSalesWithoutStock ?? false;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-border px-5">
@@ -84,14 +129,14 @@ export function InventorySettings() {
         label="Enable Inventory / Stock Management"
         description="Tracks stock per product; sales deduct inventory automatically"
         checked={enabled}
-        onChange={(v) => { setEnabled(v); toast.success(v ? "Inventory enabled" : "Inventory disabled"); }}
+        onChange={(v) => saveSettings.mutate({ enableInventory: v })}
       />
       {enabled && (
         <ToggleRow
           label="Allow Sales Without Stock"
           description="Allows creating bills even when stock is zero or negative"
           checked={allowNegative}
-          onChange={setAllowNegative}
+          onChange={(v) => saveSettings.mutate({ allowSalesWithoutStock: v })}
         />
       )}
     </div>
@@ -100,8 +145,10 @@ export function InventorySettings() {
 
 /* ── Other Settings ── */
 export function OtherSettings() {
-  const updateSettings = useUpdateSettings();
-  const { control, handleSubmit, formState: { isSubmitting } } =
+  const { data: settings, isLoading } = useOtherSettings();
+  const saveSettings = useSaveOtherSettings();
+
+  const { control, handleSubmit, reset, formState: { isSubmitting } } =
     useForm<OtherSettingsValues>({
       resolver: zodResolver(otherSettingsSchema),
       defaultValues: {
@@ -112,8 +159,31 @@ export function OtherSettings() {
       },
     });
 
+  useEffect(() => {
+    if (!settings) return;
+    reset({
+      enableShortcuts: settings.enableShortcuts,
+      enableDecimal: settings.enableDecimalValues,
+      enablePartyWiseRate: settings.enablePartyWiseProductRate,
+      enableShipmentAddress: settings.enableShipmentAddress,
+    });
+  }, [settings, reset]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit((data) => updateSettings.mutate({ section: "other", dto: data }))} className="space-y-6">
+    <form onSubmit={handleSubmit((data) => saveSettings.mutate({
+      enableShortcuts: data.enableShortcuts,
+      enableDecimalValues: data.enableDecimal,
+      enablePartyWiseProductRate: data.enablePartyWiseRate,
+      enableShipmentAddress: data.enableShipmentAddress,
+    }))} className="space-y-6">
       <div className="bg-white rounded-2xl border border-border px-5">
         <Controller control={control} name="enableShortcuts" render={({ field }) => (
           <ToggleRow label="Enable / Disable Shortcuts" description="Keyboard shortcut support across the app" checked={field.value} onChange={field.onChange} />
@@ -128,10 +198,10 @@ export function OtherSettings() {
           <ToggleRow label="Enable Shipment Address" description="Add shipment address per party on bills" checked={field.value} onChange={field.onChange} />
         )} />
       </div>
-      <button type="submit" disabled={isSubmitting || updateSettings.isPending}
+      <button type="submit" disabled={isSubmitting || saveSettings.isPending}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors disabled:opacity-60">
-        {updateSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-        {updateSettings.isPending ? "Saving…" : "Save"}
+        {saveSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        {saveSettings.isPending ? "Saving…" : "Save"}
       </button>
     </form>
   );
@@ -228,20 +298,45 @@ export function SubscriptionSettings() {
 
 /* ── E-way Bill GSP ── */
 export function EwayGSPSettings() {
+  const { data: credentials, isLoading } = useGspCredentials();
+  const saveCredentials = useSaveGspCredentials();
   const [showPass, setShowPass] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
+  useEffect(() => {
+    if (credentials) setUsername(credentials.gspUsername);
+  }, [credentials]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-200">
-        <AlertCircle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-800">
-          No firm with GST number found. Add a GST number in{" "}
-          <span className="font-semibold underline cursor-pointer">Manage Firm</span>{" "}
-          before registering GSP credentials.
-        </p>
-      </div>
+      {!credentials && (
+        <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+          <AlertCircle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800">
+            No GSP credentials registered yet. Enter your credentials below to enable E-way Bill generation.
+          </p>
+        </div>
+      )}
+
+      {credentials && (
+        <div className="flex items-start gap-3 p-4 rounded-2xl bg-green-50 border border-green-200">
+          <AlertCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-green-800">
+            GSP registered as <strong>{credentials.gspUsername}</strong> on{" "}
+            {new Date(credentials.registeredAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}.
+            Update credentials below to replace.
+          </p>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-border p-5 space-y-4">
         <div>
@@ -250,11 +345,13 @@ export function EwayGSPSettings() {
             placeholder="Your GSP account username" className={inp} />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-foreground mb-1.5">GSP Password</label>
+          <label className="block text-xs font-semibold text-foreground mb-1.5">
+            GSP Password {credentials && <span className="font-normal text-muted-foreground">(leave blank to keep current)</span>}
+          </label>
           <div className="relative">
             <input type={showPass ? "text" : "password"} value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Your GSP account password"
+              placeholder={credentials ? "Enter new password to update" : "Your GSP account password"}
               className={cn(inp, "pr-10")} />
             <button type="button" onClick={() => setShowPass((v) => !v)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
@@ -264,15 +361,21 @@ export function EwayGSPSettings() {
         </div>
 
         <div className="flex flex-wrap gap-2 text-xs">
-          <button className="text-brand-700 hover:underline font-medium">GSP Credentials Guide →</button>
+          <button type="button" className="text-brand-700 hover:underline font-medium">GSP Credentials Guide →</button>
           <span className="text-muted-foreground">·</span>
-          <button className="text-brand-700 hover:underline font-medium">E-way Bill Generation Guide →</button>
+          <button type="button" className="text-brand-700 hover:underline font-medium">E-way Bill Generation Guide →</button>
         </div>
 
         <button
-          onClick={() => toast.success("GSP credentials saved & registered")}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors">
-          <Save size={14} /> Save & Register Details
+          type="button"
+          disabled={saveCredentials.isPending || !username || (!credentials && !password)}
+          onClick={() => {
+            if (!username || (!credentials && !password)) return;
+            saveCredentials.mutate({ gspUsername: username, gspPassword: password || "unchanged" });
+          }}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors disabled:opacity-60">
+          {saveCredentials.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          {saveCredentials.isPending ? "Saving…" : "Save & Register Details"}
         </button>
       </div>
     </div>

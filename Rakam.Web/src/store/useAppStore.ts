@@ -58,7 +58,6 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "rakam-app-store",
-      // Only persist UI prefs, not ephemeral state
       partialize: (s) => ({
         sidebarCollapsed: s.sidebarCollapsed,
         activeFirmId: s.activeFirmId,
@@ -66,6 +65,18 @@ export const useAppStore = create<AppState>()(
         financialYear: s.financialYear,
         showStatistics: s.showStatistics,
       }),
+      // Discard any stale firmId that can't be converted to BigInt (e.g. old mock "firm-1")
+      merge: (persisted: unknown, current) => {
+        const p = persisted as Partial<AppState>;
+        const firmId = p.activeFirmId ?? null;
+        const isValidFirmId = firmId === null || /^\d+$/.test(firmId);
+        return {
+          ...current,
+          ...p,
+          activeFirmId: isValidFirmId ? firmId : null,
+          activeFirmName: isValidFirmId ? (p.activeFirmName ?? null) : null,
+        };
+      },
     }
   )
 );

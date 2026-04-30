@@ -17,7 +17,7 @@ export function usePurchaseBills(filters?: ListPurchaseBillsDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.purchaseBills(firmId!, filters),
-    queryFn: () => purchaseBillsService.getPurchaseBills(firmId!, filters),
+    queryFn: () => purchaseBillsService.getPurchaseBills(filters),
     enabled: !!firmId,
     placeholderData: (prev) => prev,
   });
@@ -36,7 +36,7 @@ export function useCreatePurchaseBill() {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useMutation({
     mutationFn: (dto: CreatePurchaseBillDto) =>
-      purchaseBillsService.createPurchaseBill(firmId!, dto),
+      purchaseBillsService.createPurchaseBill(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.purchaseBills(firmId!) });
       toast.success("Purchase bill created");

@@ -17,7 +17,7 @@ export function useExpenses(filters?: ListExpensesDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.expenses(firmId!, filters),
-    queryFn: () => expensesService.getExpenses(firmId!, filters),
+    queryFn: () => expensesService.getExpenses(filters),
     enabled: !!firmId,
     placeholderData: (prev) => prev,
   });
@@ -35,7 +35,7 @@ export function useCreateExpense() {
   const qc = useQueryClient();
   const firmId = useAppStore((s) => s.activeFirmId);
   return useMutation({
-    mutationFn: (dto: CreateExpenseDto) => expensesService.createExpense(firmId!, dto),
+    mutationFn: (dto: CreateExpenseDto) => expensesService.createExpense(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.expenses(firmId!) });
       toast.success("Expense created");
@@ -84,7 +84,7 @@ export function useExpenseCategories() {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.expenseCategories(firmId!),
-    queryFn: () => expensesService.getCategories(firmId!),
+    queryFn: () => expensesService.getCategories(),
     enabled: !!firmId,
   });
 }
@@ -93,7 +93,7 @@ export function useCreateCategory() {
   const qc = useQueryClient();
   const firmId = useAppStore((s) => s.activeFirmId);
   return useMutation({
-    mutationFn: (name: string) => expensesService.createCategory(firmId!, name),
+    mutationFn: (name: string) => expensesService.createCategory(name),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.expenseCategories(firmId!) });
       toast.success("Category created");
@@ -106,7 +106,7 @@ export function useExpenseSuppliers() {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.expenseSuppliers(firmId!),
-    queryFn: () => expensesService.getSuppliers(firmId!),
+    queryFn: () => expensesService.getSuppliers(),
     enabled: !!firmId,
   });
 }
@@ -115,7 +115,7 @@ export function useCreateSupplier() {
   const qc = useQueryClient();
   const firmId = useAppStore((s) => s.activeFirmId);
   return useMutation({
-    mutationFn: (dto: CreateSupplierDto) => expensesService.createSupplier(firmId!, dto),
+    mutationFn: (dto: CreateSupplierDto) => expensesService.createSupplier(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.expenseSuppliers(firmId!) });
       toast.success("Supplier created");

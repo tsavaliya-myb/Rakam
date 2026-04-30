@@ -11,7 +11,7 @@ export function useParties(filters?: ListPartiesDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.parties(firmId!, filters),
-    queryFn: () => partiesService.getParties(firmId!, filters),
+    queryFn: () => partiesService.getParties(filters),
     enabled: !!firmId,
     placeholderData: (prev) => prev,
   });
@@ -21,7 +21,7 @@ export function usePartiesDropdown() {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.partiesDropdown(firmId!),
-    queryFn: () => partiesService.getPartiesDropdown(firmId!),
+    queryFn: () => partiesService.getPartiesDropdown(),
     enabled: !!firmId,
     staleTime: Infinity,
   });
@@ -47,7 +47,7 @@ export function useCreateParty() {
   const qc = useQueryClient();
   const firmId = useAppStore((s) => s.activeFirmId);
   return useMutation({
-    mutationFn: (dto: CreatePartyDto) => partiesService.createParty(firmId!, dto),
+    mutationFn: (dto: CreatePartyDto) => partiesService.createParty(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.parties(firmId!) });
       qc.invalidateQueries({ queryKey: QK.partiesDropdown(firmId!) });

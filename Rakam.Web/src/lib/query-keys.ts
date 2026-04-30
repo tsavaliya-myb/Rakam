@@ -51,8 +51,17 @@ export const QK = {
   // Reports
   reports: (firmId: string, type: string, filters?: QueryFilters) => ["reports", firmId, type, filters] as const,
 
-  // Settings
-  settings: (firmId: string)                                    => ["settings", firmId] as const,
+  // Settings — profile (no firm context)
+  profile:              ()                                      => ["settings", "profile"] as const,
+
+  // Settings — per-firm sections
+  salesBillSettings:    (firmId: string)                        => ["settings", firmId, "sales-bill"] as const,
+  purchaseBillSettings: (firmId: string)                        => ["settings", firmId, "purchase-bill"] as const,
+  dcSettings:           (firmId: string)                        => ["settings", firmId, "delivery-challan"] as const,
+  otherSettings:        (firmId: string)                        => ["settings", firmId, "other"] as const,
+  incomeCategories:     (firmId: string)                        => ["settings", firmId, "income-categories"] as const,
+  incomeSuppliers:      (firmId: string)                        => ["settings", firmId, "income-suppliers"] as const,
+  ewayGsp:              (firmId: string)                        => ["settings", firmId, "eway-gsp"] as const,
 
   // E-Way Bills
   ewayBills: (firmId: string, filters?: QueryFilters)           => ["eway-bills", firmId, filters] as const,

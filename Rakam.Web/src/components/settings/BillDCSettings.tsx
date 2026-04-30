@@ -11,7 +11,12 @@ import {
   type PurchaseBillSettingsValues,
 } from "@/lib/schemas/settings.schema";
 import { cn } from "@/lib/utils";
-import { useSettings, useUpdateSettings } from "@/hooks/api/use-settings";
+import {
+  usePurchaseBillSettings,
+  useSavePurchaseBillSettings,
+  useDCSettings,
+  useSaveDCSettings,
+} from "@/hooks/api/use-settings";
 
 const inp = cn(
   "w-full px-3 py-2 text-sm rounded-xl border border-border bg-secondary text-foreground outline-none",
@@ -37,17 +42,38 @@ function ToggleRow({ label, description, checked, onChange }: {
   );
 }
 
+const API_TO_PRINT: Record<string, string> = {
+  ORIGINAL: "Original", DUPLICATE: "Duplicate", TRIPLICATE: "Triplicate",
+};
+const PRINT_TO_API: Record<string, string> = {
+  Original: "ORIGINAL", Duplicate: "DUPLICATE", Triplicate: "TRIPLICATE",
+};
+
 /* ── Purchase Bill Settings ── */
 export function PurchaseBillSettings() {
-  const updateSettings = useUpdateSettings();
-  const { control, handleSubmit, formState: { isSubmitting } } =
+  const { data: settings, isLoading } = usePurchaseBillSettings();
+  const saveSettings = useSavePurchaseBillSettings();
+
+  const { control, handleSubmit, reset, formState: { isSubmitting } } =
     useForm<PurchaseBillSettingsValues>({
       resolver: zodResolver(purchaseBillSettingsSchema),
       defaultValues: { displayWithHoldingTax: false },
     });
 
+  useEffect(() => {
+    if (settings) reset({ displayWithHoldingTax: settings.showWithholdingTax });
+  }, [settings, reset]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit((data) => updateSettings.mutate({ section: "purchase-bill", dto: data }))} className="space-y-6">
+    <form onSubmit={handleSubmit((data) => saveSettings.mutate({ showWithholdingTax: data.displayWithHoldingTax }))} className="space-y-6">
       <div className="bg-white rounded-2xl border border-border px-5">
         <Controller control={control} name="displayWithHoldingTax" render={({ field }) => (
           <ToggleRow
@@ -57,10 +83,10 @@ export function PurchaseBillSettings() {
           />
         )} />
       </div>
-      <button type="submit" disabled={isSubmitting || updateSettings.isPending}
+      <button type="submit" disabled={isSubmitting || saveSettings.isPending}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors disabled:opacity-60">
-        {updateSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-        {updateSettings.isPending ? "Saving…" : "Save"}
+        {saveSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        {saveSettings.isPending ? "Saving…" : "Save"}
       </button>
     </form>
   );
@@ -68,8 +94,8 @@ export function PurchaseBillSettings() {
 
 /* ── DC Settings ── */
 export function DCSettings() {
-  const { data: settings, isLoading } = useSettings();
-  const updateSettings = useUpdateSettings();
+  const { data: settings, isLoading } = useDCSettings();
+  const saveSettings = useSaveDCSettings();
 
   const { register, control, handleSubmit, reset, formState: { isSubmitting } } =
     useForm<DCSettingsValues>({
@@ -85,26 +111,25 @@ export function DCSettings() {
     });
 
   useEffect(() => {
-    if (settings) {
-      reset((prev) => ({
-        ...prev,
-        termsAndConditions: settings.termsAndConditions ?? "",
-      }));
-    }
+    if (!settings) return;
+    reset({
+      displayRate: settings.showRate,
+      displayGstNo: settings.showGstNo,
+      defaultPrintType: (API_TO_PRINT[settings.defaultPrintType] ?? "Duplicate") as "Original" | "Duplicate" | "Triplicate",
+      displayChallanOption: settings.showChallanSection,
+      termsAndConditions: settings.termsAndConditions ?? "",
+      customHeading: settings.pdfCustomHeading ?? "",
+    });
   }, [settings, reset]);
 
   function onSubmit(data: DCSettingsValues) {
-    updateSettings.mutate({
-      section: "dc",
-      dto: {
-        challanPrefix: data.customHeading,
-        termsAndConditions: data.termsAndConditions,
-        displayRate: data.displayRate,
-        displayGstNo: data.displayGstNo,
-        defaultPrintType: data.defaultPrintType,
-        displayChallanOption: data.displayChallanOption,
-        customHeading: data.customHeading,
-      },
+    saveSettings.mutate({
+      showRate: data.displayRate,
+      showGstNo: data.displayGstNo,
+      defaultPrintType: PRINT_TO_API[data.defaultPrintType],
+      showChallanSection: data.displayChallanOption,
+      termsAndConditions: data.termsAndConditions ?? null,
+      pdfCustomHeading: data.customHeading ?? null,
     });
   }
 
@@ -151,10 +176,10 @@ export function DCSettings() {
         </div>
       </div>
 
-      <button type="submit" disabled={isSubmitting || updateSettings.isPending}
+      <button type="submit" disabled={isSubmitting || saveSettings.isPending}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-900 hover:bg-brand-800 transition-colors disabled:opacity-60">
-        {updateSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-        {updateSettings.isPending ? "Saving…" : "Save"}
+        {saveSettings.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        {saveSettings.isPending ? "Saving…" : "Save"}
       </button>
     </form>
   );

@@ -10,7 +10,9 @@ export function FirmBootstrapper() {
   const setActiveFirm = useAppStore((s) => s.setActiveFirm);
 
   useEffect(() => {
-    if (firms && !activeFirmId) {
+    if (!firms) return;
+    const isValid = activeFirmId && firms.some((f) => f.id === activeFirmId);
+    if (!isValid) {
       const defaultFirm = firms.find((f) => f.isDefault) ?? firms[0];
       if (defaultFirm) setActiveFirm(defaultFirm.id, defaultFirm.name);
     }

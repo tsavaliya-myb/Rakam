@@ -18,14 +18,14 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const ewayBillsService = {
-  getEwayBills: (firmId: string, filters?: ListEwayBillsDto): Promise<ApiPaginatedResponse<EwayBill>> =>
-    apiRequest(`/eway-bills${toQuery({ firmId, ...filters })}`),
+  getEwayBills: (filters?: ListEwayBillsDto): Promise<ApiPaginatedResponse<EwayBill>> =>
+    apiRequest(`/eway-bills${toQuery(filters as Record<string, unknown>)}`),
 
   getEwayBill: (id: string): Promise<EwayBill> =>
     apiRequest(`/eway-bills/${id}`),
 
-  createEwayBill: (firmId: string, dto: CreateEwayBillDto): Promise<EwayBill> =>
-    apiRequest(`/eway-bills${toQuery({ firmId })}`, {
+  createEwayBill: (dto: CreateEwayBillDto): Promise<EwayBill> =>
+    apiRequest(`/eway-bills`, {
       method: "POST",
       body: JSON.stringify(dto),
     }),

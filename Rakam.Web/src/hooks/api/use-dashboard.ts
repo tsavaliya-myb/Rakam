@@ -10,7 +10,7 @@ export function useDashboardStats(filters?: DashboardFiltersDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.dashboard(firmId!, filters),
-    queryFn: () => dashboardService.getDashboardStats(firmId!, filters),
+    queryFn: () => dashboardService.getDashboardStats(filters),
     enabled: !!firmId,
     staleTime: 60_000,
   });
@@ -20,7 +20,7 @@ export function useGlobalSearch(query: string) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: ["dashboard", firmId, "search", query],
-    queryFn: () => dashboardService.globalSearch(firmId!, query),
+    queryFn: () => dashboardService.globalSearch(query),
     enabled: !!firmId && query.length >= 2,
     staleTime: 0,
   });

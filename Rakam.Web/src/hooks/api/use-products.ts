@@ -11,7 +11,7 @@ export function useProducts(filters?: ListProductsDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.products(firmId!, filters),
-    queryFn: () => productsService.getProducts(firmId!, filters),
+    queryFn: () => productsService.getProducts(filters),
     enabled: !!firmId,
     placeholderData: (prev) => prev,
   });
@@ -21,7 +21,7 @@ export function useProductsDropdown() {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.productsDropdown(firmId!),
-    queryFn: () => productsService.getProductsDropdown(firmId!),
+    queryFn: () => productsService.getProductsDropdown(),
     enabled: !!firmId,
     staleTime: Infinity,
   });
@@ -39,7 +39,7 @@ export function useCreateProduct() {
   const qc = useQueryClient();
   const firmId = useAppStore((s) => s.activeFirmId);
   return useMutation({
-    mutationFn: (dto: CreateProductDto) => productsService.createProduct(firmId!, dto),
+    mutationFn: (dto: CreateProductDto) => productsService.createProduct(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.products(firmId!) });
       qc.invalidateQueries({ queryKey: QK.productsDropdown(firmId!) });

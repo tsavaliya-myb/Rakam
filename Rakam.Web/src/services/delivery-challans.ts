@@ -19,14 +19,14 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const deliveryChallansService = {
-  getDeliveryChallans: (firmId: string, filters?: ListDCDto): Promise<ApiPaginatedResponse<DeliveryChallan>> =>
-    apiRequest(`/delivery-challans${toQuery({ firmId, ...filters })}`),
+  getDeliveryChallans: (filters?: ListDCDto): Promise<ApiPaginatedResponse<DeliveryChallan>> =>
+    apiRequest(`/delivery-challans${toQuery(filters as Record<string, unknown>)}`),
 
   getDeliveryChallan: (id: string): Promise<DeliveryChallan> =>
     apiRequest(`/delivery-challans/${id}`),
 
-  createDeliveryChallan: (firmId: string, dto: CreateDCDto): Promise<DeliveryChallan> =>
-    apiRequest(`/delivery-challans${toQuery({ firmId })}`, {
+  createDeliveryChallan: (dto: CreateDCDto): Promise<DeliveryChallan> =>
+    apiRequest(`/delivery-challans`, {
       method: "POST",
       body: JSON.stringify(dto),
     }),

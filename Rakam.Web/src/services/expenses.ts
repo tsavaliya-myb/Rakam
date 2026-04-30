@@ -21,14 +21,14 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const expensesService = {
-  getExpenses: (firmId: string, filters?: ListExpensesDto): Promise<ApiPaginatedResponse<Expense>> =>
-    apiRequest(`/expenses${toQuery({ firmId, ...filters })}`),
+  getExpenses: (filters?: ListExpensesDto): Promise<ApiPaginatedResponse<Expense>> =>
+    apiRequest(`/expenses${toQuery(filters as Record<string, unknown>)}`),
 
   getExpense: (id: string): Promise<Expense> =>
     apiRequest(`/expenses/${id}`),
 
-  createExpense: (firmId: string, dto: CreateExpenseDto): Promise<Expense> =>
-    apiRequest(`/expenses${toQuery({ firmId })}`, {
+  createExpense: (dto: CreateExpenseDto): Promise<Expense> =>
+    apiRequest(`/expenses`, {
       method: "POST",
       body: JSON.stringify(dto),
     }),
@@ -42,20 +42,20 @@ export const expensesService = {
   deleteExpense: (id: string): Promise<void> =>
     apiRequest(`/expenses/${id}`, { method: "DELETE" }),
 
-  getCategories: (firmId: string): Promise<ExpenseCategory[]> =>
-    apiRequest(`/expenses/categories${toQuery({ firmId })}`),
+  getCategories: (): Promise<ExpenseCategory[]> =>
+    apiRequest(`/expenses/categories`),
 
-  createCategory: (firmId: string, name: string): Promise<ExpenseCategory> =>
-    apiRequest(`/expenses/categories${toQuery({ firmId })}`, {
+  createCategory: (name: string): Promise<ExpenseCategory> =>
+    apiRequest(`/expenses/categories`, {
       method: "POST",
       body: JSON.stringify({ name }),
     }),
 
-  getSuppliers: (firmId: string): Promise<ExpenseSupplier[]> =>
-    apiRequest(`/expenses/suppliers${toQuery({ firmId })}`),
+  getSuppliers: (): Promise<ExpenseSupplier[]> =>
+    apiRequest(`/expenses/suppliers`),
 
-  createSupplier: (firmId: string, dto: CreateSupplierDto): Promise<ExpenseSupplier> =>
-    apiRequest(`/expenses/suppliers${toQuery({ firmId })}`, {
+  createSupplier: (dto: CreateSupplierDto): Promise<ExpenseSupplier> =>
+    apiRequest(`/expenses/suppliers`, {
       method: "POST",
       body: JSON.stringify(dto),
     }),

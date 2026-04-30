@@ -21,20 +21,20 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const salesBillsService = {
-  getSalesBills: (firmId: string, filters?: ListSalesBillsDto): Promise<ApiPaginatedResponse<SalesBill>> =>
-    apiRequest(`/sales-bills${toQuery({ firmId, ...filters })}`),
+  getSalesBills: (filters?: ListSalesBillsDto): Promise<ApiPaginatedResponse<SalesBill>> =>
+    apiRequest(`/sales-bills${toQuery(filters as Record<string, unknown>)}`),
 
   getSalesBill: (id: string): Promise<SalesBill> =>
     apiRequest(`/sales-bills/${id}`),
 
-  getNextBillNo: (firmId: string): Promise<{ billNo: string }> =>
-    apiRequest(`/sales-bills/next-bill-no${toQuery({ firmId })}`),
+  getNextBillNo: (billType?: string): Promise<{ billNo: string }> =>
+    apiRequest(`/sales-bills/next-bill-no${toQuery(billType ? { billType } : undefined)}`),
 
-  getUnbilledChallans: (firmId: string): Promise<DeliveryChallan[]> =>
-    apiRequest(`/sales-bills/unbilled-dc${toQuery({ firmId })}`),
+  getUnbilledChallans: (partyId?: string): Promise<DeliveryChallan[]> =>
+    apiRequest(`/sales-bills/unbilled-dc${toQuery(partyId ? { partyId } : undefined)}`),
 
-  createSalesBill: (firmId: string, dto: CreateSalesBillDto): Promise<SalesBill> =>
-    apiRequest(`/sales-bills${toQuery({ firmId })}`, {
+  createSalesBill: (dto: CreateSalesBillDto): Promise<SalesBill> =>
+    apiRequest(`/sales-bills`, {
       method: "POST",
       body: JSON.stringify(dto),
     }),

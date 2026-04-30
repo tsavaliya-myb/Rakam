@@ -4,6 +4,7 @@ import type { AuthUser } from "@/types";
 export interface VerifyOtpResponse {
   accessToken: string;
   refreshToken: string;
+  isNewUser: boolean;
   user: AuthUser;
 }
 

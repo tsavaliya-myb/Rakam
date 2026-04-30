@@ -13,7 +13,7 @@ import type {
 
 export const firmsService = {
   getFirms: (): Promise<Firm[]> =>
-    apiRequest("/firms"),
+    apiRequest<{ data: Firm[] }>("/firms").then((r) => r.data),
 
   getFirm: (id: string): Promise<Firm> =>
     apiRequest(`/firms/${id}`),

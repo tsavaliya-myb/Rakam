@@ -11,7 +11,7 @@ export function useEwayBills(filters?: ListEwayBillsDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.ewayBills(firmId!, filters),
-    queryFn: () => ewayBillsService.getEwayBills(firmId!, filters),
+    queryFn: () => ewayBillsService.getEwayBills(filters),
     enabled: !!firmId,
     placeholderData: (prev) => prev,
   });
@@ -29,7 +29,7 @@ export function useCreateEwayBill() {
   const qc = useQueryClient();
   const firmId = useAppStore((s) => s.activeFirmId);
   return useMutation({
-    mutationFn: (dto: CreateEwayBillDto) => ewayBillsService.createEwayBill(firmId!, dto),
+    mutationFn: (dto: CreateEwayBillDto) => ewayBillsService.createEwayBill(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.ewayBills(firmId!) });
       toast.success("E-Way bill created");

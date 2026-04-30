@@ -5,7 +5,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "bill",         label: "Sales Bill",        href: "/bill",             icon: "FileText" },
   { id: "purchase",     label: "Purchase Bill",     href: "/purchase-bill",    icon: "ShoppingCart" },
   { id: "challan",      label: "Delivery Challan",  href: "/delivery-challan", icon: "Truck" },
-  { id: "eway",         label: "E-Way Bill",        href: "/eway-bill",        icon: "Zap" },
+  // { id: "eway",         label: "E-Way Bill",        href: "/eway-bill",        icon: "Zap" },
   { id: "firm",         label: "Manage Firm",       href: "/manage-firm",      icon: "Building2" },
   { id: "party",        label: "Party",             href: "/party",            icon: "Users" },
   { id: "product",      label: "Products",          href: "/product",          icon: "Package" },

@@ -10,20 +10,17 @@ import {
   useExpenseSuppliers,
   useCreateSupplier,
 } from "@/hooks/api/use-expenses";
-import type { ExpenseCategory, ExpenseSupplier } from "@/types";
+import {
+  useIncomeCategories,
+  useCreateIncomeCategory,
+  useDeleteIncomeCategory,
+  useIncomeSuppliers,
+  useCreateIncomeSupplier,
+  useDeleteIncomeSupplier,
+} from "@/hooks/api/use-settings";
+import type { ExpenseCategory, ExpenseSupplier, IncomeCategory, IncomeSupplier } from "@/types";
 
 interface ListItem { id: string; name: string; }
-
-const DEFAULT_INCOME_CATEGORIES: ListItem[] = [
-  { id: "ic1", name: "Sales Income" },
-  { id: "ic2", name: "Service Income" },
-  { id: "ic3", name: "Commission" },
-];
-
-const DEFAULT_INCOME_SUPPLIERS: ListItem[] = [
-  { id: "is1", name: "Mehta Co." },
-  { id: "is2", name: "Gupta & Co." },
-];
 
 function ItemList({
   items, onAdd, onEdit, onDelete, addLabel, accent, isLoading,
@@ -155,7 +152,6 @@ export function ExpenseSettings() {
 
   return (
     <div className="space-y-5">
-      {/* Sub-tabs */}
       <div className="flex items-center bg-white rounded-xl border border-border p-1 gap-1 w-fit">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
@@ -207,22 +203,27 @@ export function ExpenseSettings() {
 /* ── Income Settings ── */
 export function IncomeSettings() {
   const [tab, setTab] = useState<"categories" | "suppliers">("categories");
-  const [categories, setCategories] = useState(DEFAULT_INCOME_CATEGORIES);
-  const [suppliers, setSuppliers]   = useState(DEFAULT_INCOME_SUPPLIERS);
-  const [addModal, setAddModal]     = useState<string | null>(null);
+  const [addModal, setAddModal] = useState<"categories" | "suppliers" | null>(null);
 
-  function handleAdd(type: string, name: string) {
-    const newItem = { id: crypto.randomUUID(), name };
-    if (type === "categories") setCategories((p) => [...p, newItem]);
-    if (type === "suppliers")  setSuppliers((p) => [...p, newItem]);
-    toast.success(`${name} added`);
+  const { data: categoriesData, isLoading: catLoading } = useIncomeCategories();
+  const { data: suppliersData,  isLoading: supLoading  } = useIncomeSuppliers();
+  const createCategory = useCreateIncomeCategory();
+  const deleteCategory = useDeleteIncomeCategory();
+  const createSupplier = useCreateIncomeSupplier();
+  const deleteSupplier = useDeleteIncomeSupplier();
+
+  const categories: ListItem[] = (categoriesData ?? []).map((c: IncomeCategory) => ({ id: c.id, name: c.name }));
+  const suppliers:  ListItem[] = (suppliersData  ?? []).map((s: IncomeSupplier) => ({ id: s.id, name: s.name }));
+
+  function handleAdd(name: string) {
+    if (addModal === "categories") {
+      createCategory.mutate(name, { onSuccess: () => setAddModal(null) });
+    } else if (addModal === "suppliers") {
+      createSupplier.mutate(name, { onSuccess: () => setAddModal(null) });
+    }
   }
 
-  function handleDelete(type: string, item: ListItem) {
-    if (type === "categories") setCategories((p) => p.filter((i) => i.id !== item.id));
-    if (type === "suppliers")  setSuppliers((p) => p.filter((i) => i.id !== item.id));
-    toast.error(`${item.name} deleted`);
-  }
+  const isSaving = createCategory.isPending || createSupplier.isPending;
 
   return (
     <div className="space-y-5">
@@ -240,18 +241,20 @@ export function IncomeSettings() {
 
       {tab === "categories" && (
         <ItemList items={categories} accent="#16532d"
+          isLoading={catLoading}
           addLabel="Add Income Category"
           onAdd={() => setAddModal("categories")}
-          onEdit={(i) => toast.info(`Edit ${i.name}`)}
-          onDelete={(i) => handleDelete("categories", i)}
+          onEdit={(i) => toast.info(`Edit ${i.name} — coming soon`)}
+          onDelete={(i) => deleteCategory.mutate(i.id)}
         />
       )}
       {tab === "suppliers" && (
         <ItemList items={suppliers} accent="#16532d"
+          isLoading={supLoading}
           addLabel="Add Supplier"
           onAdd={() => setAddModal("suppliers")}
-          onEdit={(i) => toast.info(`Edit ${i.name}`)}
-          onDelete={(i) => handleDelete("suppliers", i)}
+          onEdit={(i) => toast.info(`Edit ${i.name} — coming soon`)}
+          onDelete={(i) => deleteSupplier.mutate(i.id)}
         />
       )}
 
@@ -259,8 +262,9 @@ export function IncomeSettings() {
         <AddItemModal
           title={`Add ${addModal === "categories" ? "Income Category" : "Supplier"}`}
           accent="#16532d"
+          isSaving={isSaving}
           onClose={() => setAddModal(null)}
-          onSave={(name) => { handleAdd(addModal, name); setAddModal(null); }}
+          onSave={handleAdd}
         />
       )}
     </div>

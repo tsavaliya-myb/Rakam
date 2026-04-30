@@ -18,18 +18,28 @@ interface VerifyAccessTokenResponse extends Msg91Response {
   message: { mobile: string; email: string };
 }
 
+const MOCK_OTP = '123456';
+const MOCK_TOKEN_PREFIX = 'MOCK_TOKEN_';
+const MOCK_REQ_PREFIX = 'MOCK_REQ_';
+
 @Injectable()
 export class Msg91Service {
   private readonly authKey: string;
   private readonly widgetId: string;
   private readonly base = 'https://control.msg91.com/api/v5/widget';
+  // TODO: remove before going live — set MOCK_OTP=false in .env to disable
+  private readonly mockEnabled: boolean;
 
   constructor(config: ConfigService) {
     this.authKey = config.get<string>('msg91.authKey')!;
     this.widgetId = config.get<string>('msg91.widgetId')!;
+    this.mockEnabled = config.get<string>('mockOtp') === 'true';
   }
 
   async sendOtp(mobile: string): Promise<string> {
+    if (this.mockEnabled) {
+      return `${MOCK_REQ_PREFIX}${mobile}`;
+    }
     const data = await this.post<SendOtpResponse>('sendOtp', {
       mobile: `91${mobile}`,
       widgetId: this.widgetId,
@@ -41,6 +51,7 @@ export class Msg91Service {
   }
 
   async retryOtp(reqId: string, retryType: 'text' | 'voice'): Promise<void> {
+    if (this.mockEnabled) return;
     const data = await this.post<Msg91Response>('retryOtp', { reqId, retryType });
     if (data.type !== 'success') {
       throw new InternalServerErrorException('Failed to retry OTP');
@@ -48,6 +59,13 @@ export class Msg91Service {
   }
 
   async verifyOtp(reqId: string, otp: string): Promise<string> {
+    if (this.mockEnabled) {
+      if (otp !== MOCK_OTP || !reqId.startsWith(MOCK_REQ_PREFIX)) {
+        throw new BadRequestException('Invalid OTP');
+      }
+      const mobile = reqId.slice(MOCK_REQ_PREFIX.length);
+      return `${MOCK_TOKEN_PREFIX}${mobile}`;
+    }
     const data = await this.post<VerifyOtpResponse>('verifyOtp', { reqId, otp });
     if (data.type !== 'success' || !data['access-token']) {
       throw new BadRequestException('Invalid OTP');
@@ -56,6 +74,9 @@ export class Msg91Service {
   }
 
   async verifyAccessToken(accessToken: string): Promise<string> {
+    if (this.mockEnabled && accessToken.startsWith(MOCK_TOKEN_PREFIX)) {
+      return accessToken.slice(MOCK_TOKEN_PREFIX.length);
+    }
     const data = await this.post<VerifyAccessTokenResponse>('verifyAccessToken', {
       'access-token': accessToken,
     });

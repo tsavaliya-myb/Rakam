@@ -36,12 +36,15 @@ export class AuthService {
     const msg91Token = await this.msg91.verifyOtp(reqId, otp);
     const mobile = await this.msg91.verifyAccessToken(msg91Token);
 
+    let isNewUser = false;
+
     const user = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.user.findUnique({ where: { mobile } });
       if (existing) {
         await tx.user.update({ where: { id: existing.id }, data: { lastLoginAt: new Date() } });
         return existing;
       }
+      isNewUser = true;
       const account = await tx.account.create({ data: {} });
       const now = new Date();
       await tx.subscription.create({
@@ -58,7 +61,8 @@ export class AuthService {
       return tx.user.create({ data: { mobile, accountId: account.id, lastLoginAt: new Date() } });
     });
 
-    return this.issueTokenPair(user.id, user.accountId, mobile);
+    const tokens = await this.issueTokenPair(user.id, user.accountId, mobile);
+    return { ...tokens, isNewUser };
   }
 
   async refresh(rawRefreshToken: string) {

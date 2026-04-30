@@ -35,10 +35,11 @@ export interface PaginatedResponse<T> {
 interface RawRequestOptions extends RequestInit {
   token?: string;
   firmId?: string;
+  fy?: string;
 }
 
 async function rawRequest<T>(endpoint: string, options: RawRequestOptions): Promise<T> {
-  const { token, firmId, headers: extraHeaders, ...init } = options;
+  const { token, firmId, fy, headers: extraHeaders, ...init } = options;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -46,6 +47,7 @@ async function rawRequest<T>(endpoint: string, options: RawRequestOptions): Prom
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (firmId) headers["x-firm-id"] = firmId;
+  if (fy) headers["x-fy"] = fy.split("-")[0];
 
   const res = await fetch(`${BASE_URL}${endpoint}`, { ...init, headers });
 
@@ -83,7 +85,7 @@ export const authApi = {
     }),
 
   verifyOtp: (reqId: string, otp: string) =>
-    rawRequest<{ accessToken: string; refreshToken: string; user: import("@/types").AuthUser }>("/auth/otp/verify", {
+    rawRequest<{ accessToken: string; refreshToken: string; isNewUser: boolean; user: import("@/types").AuthUser }>("/auth/otp/verify", {
       method: "POST",
       body: JSON.stringify({ reqId, otp }),
     }),
@@ -110,13 +112,14 @@ export async function apiRequest<T>(
   retry = true
 ): Promise<T> {
   const { accessToken, refreshToken, setAuth, clearAuth } = useAuthStore.getState();
-  const { activeFirmId } = useAppStore.getState();
+  const { activeFirmId, financialYear } = useAppStore.getState();
 
   try {
     return await rawRequest<T>(endpoint, {
       ...options,
       token: accessToken ?? undefined,
       firmId: activeFirmId ?? undefined,
+      fy: financialYear,
     });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401 && retry && refreshToken) {
@@ -141,6 +144,7 @@ export async function apiRequest<T>(
 export function createApiRequest(firmId: string) {
   return function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const { accessToken, refreshToken, setAuth, clearAuth } = useAuthStore.getState();
+    const { financialYear } = useAppStore.getState();
 
     async function attempt(isRetry: boolean): Promise<T> {
       try {
@@ -148,6 +152,7 @@ export function createApiRequest(firmId: string) {
           ...options,
           token: accessToken ?? undefined,
           firmId,
+          fy: financialYear,
         });
       } catch (err) {
         if (err instanceof ApiError && err.status === 401 && !isRetry && refreshToken) {
@@ -177,7 +182,7 @@ export async function uploadFile<T>(
   extraFields?: Record<string, string>
 ): Promise<T> {
   const { accessToken, refreshToken, setAuth, clearAuth } = useAuthStore.getState();
-  const { activeFirmId } = useAppStore.getState();
+  const { activeFirmId, financialYear } = useAppStore.getState();
 
   const formData = new FormData();
   formData.append("file", file);
@@ -190,6 +195,7 @@ export async function uploadFile<T>(
     // Do NOT set Content-Type — browser sets it with the multipart boundary
     if (token) headers["Authorization"] = `Bearer ${token}`;
     if (activeFirmId) headers["x-firm-id"] = activeFirmId;
+    if (financialYear) headers["x-fy"] = financialYear.split("-")[0];
 
     const res = await fetch(`${BASE_URL}${endpoint}`, {
       method: "POST",

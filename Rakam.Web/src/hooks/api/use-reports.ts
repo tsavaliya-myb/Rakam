@@ -11,7 +11,7 @@ export function useReport(type: string, filters?: ReportFiltersDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.reports(firmId!, type, filters),
-    queryFn: () => reportsService.getReport(firmId!, type, filters),
+    queryFn: () => reportsService.getReport(type, filters),
     enabled: !!firmId && !!type,
   });
 }
@@ -27,7 +27,7 @@ export function useExportReport() {
       type: string;
       format: "pdf" | "excel";
       filters?: ReportFiltersDto;
-    }) => reportsService.exportReport(firmId!, type, format, filters),
+    }) => reportsService.exportReport(type, format, filters),
     onSuccess: (blob, { type, format }) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

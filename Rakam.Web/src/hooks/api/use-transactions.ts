@@ -16,7 +16,7 @@ export function useTransactions(filters?: ListTransactionsDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.transactions(firmId!, filters),
-    queryFn: () => transactionsService.getTransactions(firmId!, filters),
+    queryFn: () => transactionsService.getTransactions(filters),
     enabled: !!firmId,
     placeholderData: (prev) => prev,
   });
@@ -35,7 +35,7 @@ export function useCreateTransaction() {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useMutation({
     mutationFn: (dto: CreateTransactionDto) =>
-      transactionsService.createTransaction(firmId!, dto),
+      transactionsService.createTransaction(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.transactions(firmId!) });
       toast.success("Transaction created");

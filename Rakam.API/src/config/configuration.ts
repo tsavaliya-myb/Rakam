@@ -17,6 +17,7 @@ export default () => ({
     refreshSecret: process.env.JWT_REFRESH_SECRET,
     refreshTtl: process.env.JWT_REFRESH_TTL ?? '30d',
   },
+  mockOtp: process.env.MOCK_OTP ?? 'false',
   msg91: {
     authKey: process.env.MSG91_AUTH_KEY,
     widgetId: process.env.MSG91_WIDGET_ID,

@@ -19,14 +19,14 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const purchaseBillsService = {
-  getPurchaseBills: (firmId: string, filters?: ListPurchaseBillsDto): Promise<ApiPaginatedResponse<PurchaseBill>> =>
-    apiRequest(`/purchase-bills${toQuery({ firmId, ...filters })}`),
+  getPurchaseBills: (filters?: ListPurchaseBillsDto): Promise<ApiPaginatedResponse<PurchaseBill>> =>
+    apiRequest(`/purchase-bills${toQuery(filters as Record<string, unknown>)}`),
 
   getPurchaseBill: (id: string): Promise<PurchaseBill> =>
     apiRequest(`/purchase-bills/${id}`),
 
-  createPurchaseBill: (firmId: string, dto: CreatePurchaseBillDto): Promise<PurchaseBill> =>
-    apiRequest(`/purchase-bills${toQuery({ firmId })}`, {
+  createPurchaseBill: (dto: CreatePurchaseBillDto): Promise<PurchaseBill> =>
+    apiRequest(`/purchase-bills`, {
       method: "POST",
       body: JSON.stringify(dto),
     }),

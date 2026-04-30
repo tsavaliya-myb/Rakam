@@ -12,9 +12,9 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const dashboardService = {
-  getDashboardStats: (firmId: string, filters?: DashboardFiltersDto): Promise<DashboardStats> =>
-    apiRequest(`/dashboard/stats${toQuery({ firmId, ...filters })}`),
+  getDashboardStats: (filters?: DashboardFiltersDto): Promise<DashboardStats> =>
+    apiRequest(`/dashboard/stats${toQuery(filters as Record<string, unknown>)}`),
 
-  globalSearch: (firmId: string, query: string): Promise<GlobalSearchResult> =>
-    apiRequest(`/dashboard/search${toQuery({ firmId, q: query })}`),
+  globalSearch: (query: string): Promise<GlobalSearchResult> =>
+    apiRequest(`/dashboard/search${toQuery({ q: query })}`),
 };

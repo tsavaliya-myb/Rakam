@@ -18,14 +18,14 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const transactionsService = {
-  getTransactions: (firmId: string, filters?: ListTransactionsDto): Promise<ApiPaginatedResponse<Transaction>> =>
-    apiRequest(`/transactions${toQuery({ firmId, ...filters })}`),
+  getTransactions: (filters?: ListTransactionsDto): Promise<ApiPaginatedResponse<Transaction>> =>
+    apiRequest(`/transactions${toQuery(filters as Record<string, unknown>)}`),
 
   getTransaction: (id: string): Promise<Transaction> =>
     apiRequest(`/transactions/${id}`),
 
-  createTransaction: (firmId: string, dto: CreateTransactionDto): Promise<Transaction> =>
-    apiRequest(`/transactions${toQuery({ firmId })}`, {
+  createTransaction: (dto: CreateTransactionDto): Promise<Transaction> =>
+    apiRequest(`/transactions`, {
       method: "POST",
       body: JSON.stringify(dto),
     }),

@@ -18,7 +18,7 @@ export function useSalesBills(filters?: ListSalesBillsDto) {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.salesBills(firmId!, filters),
-    queryFn: () => salesBillsService.getSalesBills(firmId!, filters),
+    queryFn: () => salesBillsService.getSalesBills(filters),
     enabled: !!firmId,
     placeholderData: (prev) => prev,
   });
@@ -36,7 +36,7 @@ export function useNextBillNo() {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.nextBillNo(firmId!),
-    queryFn: () => salesBillsService.getNextBillNo(firmId!),
+    queryFn: () => salesBillsService.getNextBillNo(),
     enabled: !!firmId,
     staleTime: 0,
   });
@@ -46,7 +46,7 @@ export function useUnbilledChallans() {
   const firmId = useAppStore((s) => s.activeFirmId);
   return useQuery({
     queryKey: QK.unbilledDCs(firmId!),
-    queryFn: () => salesBillsService.getUnbilledChallans(firmId!),
+    queryFn: () => salesBillsService.getUnbilledChallans(),
     enabled: !!firmId,
   });
 }
@@ -55,7 +55,7 @@ export function useCreateSalesBill() {
   const qc = useQueryClient();
   const firmId = useAppStore((s) => s.activeFirmId);
   return useMutation({
-    mutationFn: (dto: CreateSalesBillDto) => salesBillsService.createSalesBill(firmId!, dto),
+    mutationFn: (dto: CreateSalesBillDto) => salesBillsService.createSalesBill(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.salesBills(firmId!) });
       qc.invalidateQueries({ queryKey: QK.nextBillNo(firmId!) });

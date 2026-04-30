@@ -19,17 +19,17 @@ function toQuery(params?: Record<string, unknown>): string {
 }
 
 export const productsService = {
-  getProducts: (firmId: string, filters?: ListProductsDto): Promise<ApiPaginatedResponse<Product>> =>
-    apiRequest(`/products${toQuery({ firmId, ...filters })}`),
+  getProducts: (filters?: ListProductsDto): Promise<ApiPaginatedResponse<Product>> =>
+    apiRequest(`/products${toQuery(filters as Record<string, unknown>)}`),
 
-  getProductsDropdown: (firmId: string): Promise<ProductDropdownItem[]> =>
-    apiRequest(`/products/dropdown${toQuery({ firmId })}`),
+  getProductsDropdown: (): Promise<ProductDropdownItem[]> =>
+    apiRequest(`/products/dropdown`),
 
   getProduct: (id: string): Promise<Product> =>
     apiRequest(`/products/${id}`),
 
-  createProduct: (firmId: string, dto: CreateProductDto): Promise<Product> =>
-    apiRequest(`/products${toQuery({ firmId })}`, {
+  createProduct: (dto: CreateProductDto): Promise<Product> =>
+    apiRequest(`/products`, {
       method: "POST",
       body: JSON.stringify(dto),
     }),
